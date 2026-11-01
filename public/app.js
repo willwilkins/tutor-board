@@ -1,0 +1,682 @@
+import { drawSegment, drawTail, drawStroke, widthAt, hitStroke, strokeBounds, maxHalfWidth, pageBounds } from './render.js';
+import { connect } from './net.js';
+
+// ---------- canvases ----------
+// "ink" holds finished + in-progress strokes. It is opaque and "desynchronized",
+// which lets the browser show new ink without waiting for the next compositor frame.
+// "overlay" sits on top for throwaway drawing: the stroke tip, predicted points
+// and the eraser circle. It also receives all pointer input.
+const ink = document.getElementById('ink');
+const overlay = document.getElementById('overlay');
+const ictx = ink.getContext('2d', { alpha: false, desynchronized: true });
+const octx = overlay.getContext('2d', { desynchronized: true });
+let dpr = window.devicePixelRatio || 1;
+
+// ---------- state ----------
+const COLORS = ['#1d1d1f', '#1f5fd1', '#d62d2d', '#1f9d55', '#e67e00', '#7b3fd1'];
+const SIZES = [1.5, 3, 6, 12];
+const ERASER_RADIUS = 10; // screen px
+const MIN_ZOOM = 0.1, MAX_ZOOM = 8;
+
+const board = { pages: [] };
+const strokes = new Map(); // id -> stroke
+let pageId = null;
+const views = new Map(); // pageId -> { x, y, z } (screen = world * z + offset)
+const tool = { mode: 'pen', color: COLORS[0], size: SIZES[1] };
+const undoStack = [];
+const redoStack = [];
+
+const clientId = Math.random().toString(36).slice(2, 8);
+let idCounter = 0;
+const newId = () => `${clientId}-${Date.now().toString(36)}-${(idCounter++).toString(36)}`;
+
+const currentPage = () => board.pages.find((p) => p.id === pageId);
+function view() {
+  let v = views.get(pageId);
+  if (!v) views.set(pageId, (v = { x: 0, y: 0, z: 1 }));
+  return v;
+}
+const toWorldX = (cx, v) => (cx - v.x) / v.z;
+const toWorldY = (cy, v) => (cy - v.y) / v.z;
+const round = (n, d) => Math.round(n * d) / d;
+
+// ---------- network ----------
+const net = connect({
+  onMessage: handleMessage,
+  onStatus: (online) => {
+    document.getElementById('conn').classList.toggle('online', online);
+    if (!online) document.getElementById('peers').textContent = 'offline – reconnecting…';
+  },
+});
+
+function handleMessage(m) {
+  switch (m.type) {
+    case 'init': {
+      board.pages = m.board.pages;
+      strokes.clear();
+      for (const p of board.pages) for (const s of p.strokes) strokes.set(s.id, s);
+      if (!currentPage()) pageId = board.pages[0]?.id ?? null;
+      renderPages();
+      redraw();
+      break;
+    }
+    case 'presence':
+      document.getElementById('peers').textContent =
+        m.count === 1 ? 'only you connected' : `${m.count} connected`;
+      break;
+    case 'stroke:start':
+    case 'stroke:add': {
+      const s = m.stroke;
+      if (!addStrokeLocal(s)) break;
+      if (s.pageId === pageId) {
+        if (m.type === 'stroke:add') drawStroke(ictx, s);
+        else for (let k = 1; k < s.points.length / 3; k++) drawSegment(ictx, s, k);
+      }
+      break;
+    }
+    case 'stroke:points': {
+      const s = strokes.get(m.id);
+      if (!s) break;
+      const n0 = s.points.length / 3;
+      for (const n of m.points) s.points.push(n);
+      if (s.pageId === pageId) {
+        const n1 = s.points.length / 3;
+        for (let k = Math.max(1, n0); k < n1; k++) drawSegment(ictx, s, k);
+      }
+      break;
+    }
+    case 'stroke:end': {
+      const s = strokes.get(m.id);
+      if (s && s.pageId === pageId) drawTail(ictx, s);
+      break;
+    }
+    case 'stroke:delete':
+      removeStrokesLocal(m.pageId, m.ids);
+      if (m.pageId === pageId) requestRedraw();
+      break;
+    case 'page:add':
+      board.pages.push(m.page);
+      renderPages();
+      break;
+    case 'page:rename': {
+      const p = board.pages.find((x) => x.id === m.id);
+      if (p) p.name = m.name;
+      renderPages();
+      break;
+    }
+    case 'page:delete':
+      deletePageLocal(m.id);
+      break;
+  }
+}
+
+function addStrokeLocal(s) {
+  const page = board.pages.find((p) => p.id === s.pageId);
+  if (!page || strokes.has(s.id)) return false;
+  page.strokes.push(s);
+  strokes.set(s.id, s);
+  return true;
+}
+
+function removeStrokesLocal(pid, ids) {
+  const page = board.pages.find((p) => p.id === pid);
+  const set = new Set(ids);
+  if (page) page.strokes = page.strokes.filter((s) => !set.has(s.id));
+  for (const id of set) strokes.delete(id);
+}
+
+function deletePageLocal(id) {
+  const page = board.pages.find((p) => p.id === id);
+  if (!page) return;
+  for (const s of page.strokes) strokes.delete(s.id);
+  board.pages = board.pages.filter((p) => p !== page);
+  views.delete(id);
+  if (pageId === id) pageId = board.pages[0]?.id ?? null;
+  renderPages();
+  redraw();
+}
+
+// ---------- rendering ----------
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  for (const c of [ink, overlay]) {
+    c.width = Math.round(innerWidth * dpr);
+    c.height = Math.round(innerHeight * dpr);
+  }
+  redraw();
+}
+
+function applyView(ctx) {
+  const v = view();
+  ctx.setTransform(dpr * v.z, 0, 0, dpr * v.z, dpr * v.x, dpr * v.y);
+}
+
+let redrawQueued = false;
+function requestRedraw() {
+  if (redrawQueued) return;
+  redrawQueued = true;
+  requestAnimationFrame(redraw);
+}
+
+function redraw() {
+  redrawQueued = false;
+  ictx.setTransform(1, 0, 0, 1, 0, 0);
+  ictx.fillStyle = '#fff';
+  ictx.fillRect(0, 0, ink.width, ink.height);
+  drawGrid();
+  applyView(ictx);
+  const page = currentPage();
+  if (page) {
+    const v = view();
+    const x0 = toWorldX(0, v), y0 = toWorldY(0, v);
+    const x1 = toWorldX(innerWidth, v), y1 = toWorldY(innerHeight, v);
+    for (const s of page.strokes) {
+      const b = strokeBounds(s);
+      const m = maxHalfWidth(s);
+      if (b.maxX + m < x0 || b.minX - m > x1 || b.maxY + m < y0 || b.minY - m > y1) continue;
+      drawStroke(ictx, s);
+    }
+  }
+  document.getElementById('zoom').textContent = Math.round(view().z * 100) + '%';
+}
+
+function drawGrid() {
+  const v = view();
+  let step = 32 * v.z;
+  while (step < 14) step *= 2;
+  const ox = ((v.x % step) + step) % step;
+  const oy = ((v.y % step) + step) % step;
+  const r = Math.max(1.5, 1.5 * dpr);
+  ictx.fillStyle = '#d3d8e0';
+  for (let x = ox; x < innerWidth; x += step) {
+    for (let y = oy; y < innerHeight; y += step) {
+      ictx.fillRect(x * dpr - r / 2, y * dpr - r / 2, r, r);
+    }
+  }
+}
+
+function clearOverlay() {
+  octx.setTransform(1, 0, 0, 1, 0, 0);
+  octx.clearRect(0, 0, overlay.width, overlay.height);
+}
+
+// Draws the newest bit of the live stroke (from the last curve midpoint to the
+// pen tip), plus the browser's predicted next points, on the overlay.
+function drawLiveTip(predicted) {
+  clearOverlay();
+  const s = live?.stroke;
+  if (!s) return;
+  const p = s.points;
+  const n = p.length / 3;
+  if (!n) return;
+  const v = view();
+  const i = (n - 1) * 3;
+  applyView(octx);
+  octx.strokeStyle = s.color;
+  octx.lineCap = 'round';
+  octx.lineJoin = 'round';
+  octx.lineWidth = widthAt(s.size, p[i + 2]);
+  octx.beginPath();
+  if (n >= 2) octx.moveTo((p[i - 3] + p[i]) / 2, (p[i - 2] + p[i + 1]) / 2);
+  else octx.moveTo(p[0], p[1]);
+  octx.lineTo(p[i], p[i + 1]);
+  for (const e of predicted) octx.lineTo(toWorldX(e.clientX, v), toWorldY(e.clientY, v));
+  octx.stroke();
+}
+
+function drawEraserCursor(cx, cy) {
+  clearOverlay();
+  octx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  octx.strokeStyle = '#6b7280';
+  octx.lineWidth = 1;
+  octx.beginPath();
+  octx.arc(cx, cy, ERASER_RADIUS, 0, Math.PI * 2);
+  octx.stroke();
+}
+
+// ---------- input ----------
+// act = the current gesture: { kind: 'draw' | 'erase' | 'pan', pointerId, ... }
+let act = null;
+// live = the stroke being drawn and how many of its numbers were already sent.
+let live = null;
+let spaceDown = false;
+let lastRate = null;
+
+const useRawUpdate = 'onpointerrawupdate' in window;
+
+function pressureOf(e) {
+  if (e.pointerType !== 'pen') return 0.5;
+  return e.pressure > 0 ? e.pressure : 0.1;
+}
+
+function isEraserTip(e) {
+  return e.pointerType === 'pen' && (e.button === 5 || (e.buttons & 32) !== 0);
+}
+
+overlay.addEventListener('pointerdown', (e) => {
+  if (act || !currentPage()) return;
+  e.preventDefault();
+  let kind;
+  if (e.pointerType === 'touch' || e.button === 1 || e.button === 2 || tool.mode === 'hand' || spaceDown) kind = 'pan';
+  else if (isEraserTip(e) || tool.mode === 'eraser') kind = 'erase';
+  else if (e.button === 0) kind = 'draw';
+  else return;
+
+  overlay.setPointerCapture(e.pointerId);
+  act = { kind, pointerId: e.pointerId, lastX: e.clientX, lastY: e.clientY };
+
+  if (kind === 'draw') {
+    const s = { id: newId(), pageId, color: tool.color, size: tool.size, points: [] };
+    addStrokeLocal(s);
+    live = { stroke: s, sent: 0 };
+    act.samples = 0;
+    act.t0 = e.timeStamp;
+    act.t1 = e.timeStamp;
+    addPoint(e);
+    net.send({ type: 'stroke:start', stroke: { ...s, points: s.points.slice() } });
+    live.sent = s.points.length;
+    drawLiveTip([]);
+  } else if (kind === 'erase') {
+    act.erased = [];
+    eraseAt(e.clientX, e.clientY);
+    drawEraserCursor(e.clientX, e.clientY);
+  } else {
+    overlay.style.cursor = 'grabbing';
+  }
+});
+
+function addPoint(e) {
+  const s = live.stroke;
+  const v = view();
+  const x = toWorldX(e.clientX, v);
+  const y = toWorldY(e.clientY, v);
+  const p = s.points;
+  act.samples++;
+  act.t1 = e.timeStamp;
+  const n = p.length / 3;
+  if (n > 0) {
+    const dx = x - p[p.length - 3];
+    const dy = y - p[p.length - 2];
+    const min = 0.2 / v.z; // skip only exact repeats (< 0.2 screen px)
+    if (dx * dx + dy * dy < min * min) return;
+  }
+  p.push(round(x, 100), round(y, 100), round(pressureOf(e), 1000));
+  if (n >= 1) drawSegment(ictx, s, n);
+}
+
+function samplesOf(e) {
+  const list = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+  return list.length ? list : [e];
+}
+
+function handleMove(e) {
+  if (!act) {
+    if (tool.mode === 'eraser' || isEraserTip(e)) drawEraserCursor(e.clientX, e.clientY);
+    return;
+  }
+  if (e.pointerId !== act.pointerId) return;
+  if (e.pointerType === 'mouse' && e.buttons === 0) {
+    endGesture(e);
+    return;
+  }
+
+  if (act.kind === 'draw') {
+    for (const ev of samplesOf(e)) addPoint(ev);
+    queueFlush();
+    if (useRawUpdate) drawLiveTip([]);
+  } else if (act.kind === 'erase') {
+    for (const ev of samplesOf(e)) eraseAt(ev.clientX, ev.clientY);
+    drawEraserCursor(e.clientX, e.clientY);
+  } else {
+    const v = view();
+    v.x += e.clientX - act.lastX;
+    v.y += e.clientY - act.lastY;
+    requestRedraw();
+  }
+  act.lastX = e.clientX;
+  act.lastY = e.clientY;
+}
+
+// pointerrawupdate fires as soon as the pen reports, instead of once per frame.
+// Use it for samples when available; pointermove still supplies predictions.
+if (useRawUpdate) {
+  overlay.addEventListener('pointerrawupdate', handleMove);
+  overlay.addEventListener('pointermove', (e) => {
+    if (act?.kind === 'draw' && e.pointerId === act.pointerId) {
+      drawLiveTip(e.getPredictedEvents ? e.getPredictedEvents() : []);
+    }
+  });
+} else {
+  overlay.addEventListener('pointermove', (e) => {
+    handleMove(e);
+    if (act?.kind === 'draw' && e.pointerId === act.pointerId) {
+      drawLiveTip(e.getPredictedEvents ? e.getPredictedEvents() : []);
+    }
+  });
+}
+
+overlay.addEventListener('pointerup', endGesture);
+overlay.addEventListener('pointercancel', endGesture);
+overlay.addEventListener('contextmenu', (e) => e.preventDefault());
+
+function endGesture(e) {
+  if (!act || e.pointerId !== act.pointerId) return;
+  if (act.kind === 'draw') {
+    const s = live.stroke;
+    drawTail(ictx, s);
+    flush();
+    net.send({ type: 'stroke:end', id: s.id, pageId: s.pageId });
+    pushUndo({ type: 'add', strokes: [s] });
+    const secs = (act.t1 - act.t0) / 1000;
+    if (secs > 0.15) {
+      lastRate = Math.round((act.samples - 1) / secs);
+      document.getElementById('rate').textContent = `pen ${lastRate} Hz`;
+    }
+    live = null;
+  } else if (act.kind === 'erase') {
+    if (act.erased.length) pushUndo({ type: 'erase', strokes: act.erased });
+  }
+  act = null;
+  clearOverlay();
+  updateCursor();
+  if (tool.mode === 'eraser') drawEraserCursor(e.clientX, e.clientY);
+}
+
+// Send new points once per frame (every point is sent, just grouped).
+let flushQueued = false;
+function queueFlush() {
+  if (flushQueued) return;
+  flushQueued = true;
+  requestAnimationFrame(flush);
+}
+function flush() {
+  flushQueued = false;
+  if (!live) return;
+  const p = live.stroke.points;
+  if (p.length > live.sent) {
+    net.send({ type: 'stroke:points', id: live.stroke.id, pageId: live.stroke.pageId, points: p.slice(live.sent) });
+    live.sent = p.length;
+  }
+}
+
+function eraseAt(cx, cy) {
+  const v = view();
+  const x = toWorldX(cx, v), y = toWorldY(cy, v);
+  const r = ERASER_RADIUS / v.z;
+  const page = currentPage();
+  const hit = page.strokes.filter((s) => s !== live?.stroke && hitStroke(s, x, y, r));
+  if (!hit.length) return;
+  const ids = hit.map((s) => s.id);
+  removeStrokesLocal(pageId, ids);
+  act.erased.push(...hit);
+  net.send({ type: 'stroke:delete', pageId, ids });
+  requestRedraw();
+}
+
+// Wheel scrolls the canvas; Ctrl+wheel (and trackpad pinch) zooms.
+overlay.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const scale = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? innerHeight : 1;
+  const v = view();
+  if (e.ctrlKey || e.metaKey) zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * scale * 0.01));
+  else {
+    v.x -= e.deltaX * scale;
+    v.y -= e.deltaY * scale;
+  }
+  requestRedraw();
+}, { passive: false });
+
+function zoomAt(cx, cy, factor) {
+  const v = view();
+  const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.z * factor));
+  const k = z / v.z;
+  v.x = cx - (cx - v.x) * k;
+  v.y = cy - (cy - v.y) * k;
+  v.z = z;
+}
+
+function fitView() {
+  const page = currentPage();
+  const b = page && pageBounds(page.strokes);
+  const v = view();
+  if (!b) {
+    v.x = 0; v.y = 0; v.z = 1;
+  } else {
+    const pad = 80;
+    const w = b.maxX - b.minX, h = b.maxY - b.minY;
+    v.z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.min((innerWidth - pad * 2) / w, (innerHeight - pad * 2) / h, 2)));
+    v.x = innerWidth / 2 - ((b.minX + b.maxX) / 2) * v.z;
+    v.y = innerHeight / 2 - ((b.minY + b.maxY) / 2) * v.z;
+  }
+  redraw();
+}
+
+function updateCursor() {
+  overlay.style.cursor = tool.mode === 'hand' || spaceDown ? 'grab' : tool.mode === 'eraser' ? 'none' : 'crosshair';
+}
+
+// ---------- undo / redo ----------
+// Each entry: { type: 'add' | 'erase', strokes }. Undo of 'add' removes them;
+// undo of 'erase' puts them back. Redo does the opposite.
+function pushUndo(entry) {
+  undoStack.push(entry);
+  if (undoStack.length > 500) undoStack.shift();
+  redoStack.length = 0;
+}
+
+function removeAndSend(list) {
+  const byPage = new Map();
+  for (const s of list) {
+    if (!strokes.has(s.id)) continue;
+    if (!byPage.has(s.pageId)) byPage.set(s.pageId, []);
+    byPage.get(s.pageId).push(s.id);
+  }
+  for (const [pid, ids] of byPage) {
+    removeStrokesLocal(pid, ids);
+    net.send({ type: 'stroke:delete', pageId: pid, ids });
+  }
+}
+
+function addAndSend(list) {
+  for (const s of list) {
+    if (addStrokeLocal(s)) net.send({ type: 'stroke:add', stroke: s });
+  }
+}
+
+function undo() {
+  if (act) return;
+  const a = undoStack.pop();
+  if (!a) return;
+  if (a.type === 'add') removeAndSend(a.strokes);
+  else addAndSend(a.strokes);
+  redoStack.push(a);
+  requestRedraw();
+}
+
+function redo() {
+  if (act) return;
+  const a = redoStack.pop();
+  if (!a) return;
+  if (a.type === 'add') addAndSend(a.strokes);
+  else removeAndSend(a.strokes);
+  undoStack.push(a);
+  requestRedraw();
+}
+
+function clearPage() {
+  const page = currentPage();
+  if (!page || !page.strokes.length) return;
+  const list = page.strokes.slice();
+  removeAndSend(list);
+  pushUndo({ type: 'erase', strokes: list });
+  redraw();
+  toast('Page cleared – Ctrl+Z to undo');
+}
+
+// ---------- pages ----------
+function renderPages() {
+  const el = document.getElementById('pages');
+  el.innerHTML = '';
+  for (const p of board.pages) {
+    const b = document.createElement('button');
+    b.textContent = p.name;
+    b.title = 'Double-click to rename';
+    b.classList.toggle('active', p.id === pageId);
+    b.onclick = () => switchPage(p.id);
+    b.ondblclick = () => renamePage(p);
+    el.appendChild(b);
+  }
+  document.getElementById('deletePage').disabled = board.pages.length <= 1;
+}
+
+function switchPage(id) {
+  if (act || id === pageId) return;
+  pageId = id;
+  renderPages();
+  redraw();
+}
+
+function addPage() {
+  let n = board.pages.length + 1;
+  while (board.pages.some((p) => p.name === `Page ${n}`)) n++;
+  const page = { id: newId(), name: `Page ${n}`, strokes: [] };
+  board.pages.push(page);
+  net.send({ type: 'page:add', page: { id: page.id, name: page.name } });
+  switchPage(page.id);
+}
+
+function renamePage(p) {
+  const name = prompt('Page name', p.name);
+  if (!name || !name.trim()) return;
+  p.name = name.trim().slice(0, 80);
+  net.send({ type: 'page:rename', id: p.id, name: p.name });
+  renderPages();
+}
+
+function deletePage() {
+  const page = currentPage();
+  if (!page || board.pages.length <= 1) return;
+  if (!confirm(`Delete "${page.name}"? This can't be undone.`)) return;
+  net.send({ type: 'page:delete', id: page.id });
+  deletePageLocal(page.id);
+}
+
+// ---------- export ----------
+function exportPage() {
+  const page = currentPage();
+  const b = page && pageBounds(page.strokes);
+  if (!b) {
+    toast('Nothing to export on this page');
+    return;
+  }
+  const pad = 48;
+  const minX = b.minX - pad, minY = b.minY - pad;
+  const w = b.maxX - b.minX + pad * 2, h = b.maxY - b.minY + pad * 2;
+  const scale = Math.min(3, 8192 / w, 8192 / h);
+  const c = document.createElement('canvas');
+  c.width = Math.ceil(w * scale);
+  c.height = Math.ceil(h * scale);
+  const x = c.getContext('2d');
+  x.fillStyle = '#fff';
+  x.fillRect(0, 0, c.width, c.height);
+  x.setTransform(scale, 0, 0, scale, -minX * scale, -minY * scale);
+  for (const s of page.strokes) drawStroke(x, s);
+  c.toBlob((blob) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${page.name.replace(/[^\w\- ]+/g, '').trim() || 'page'}.png`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }, 'image/png');
+}
+
+// ---------- toolbar ----------
+function setTool(mode) {
+  tool.mode = mode;
+  for (const b of document.querySelectorAll('[data-tool]')) b.classList.toggle('active', b.dataset.tool === mode);
+  if (mode !== 'eraser') clearOverlay();
+  updateCursor();
+}
+
+function setColor(c) {
+  tool.color = c;
+  for (const b of document.querySelectorAll('.swatch')) b.classList.toggle('active', b.dataset.color === c);
+  if (tool.mode !== 'pen') setTool('pen');
+}
+
+function setSize(sz) {
+  tool.size = sz;
+  for (const b of document.querySelectorAll('.size')) b.classList.toggle('active', Number(b.dataset.size) === sz);
+  if (tool.mode !== 'pen') setTool('pen');
+}
+
+function buildToolbar() {
+  const colors = document.getElementById('colors');
+  for (const c of COLORS) {
+    const b = document.createElement('button');
+    b.className = 'swatch';
+    b.dataset.color = c;
+    b.style.setProperty('--c', c);
+    b.title = c;
+    b.onclick = () => setColor(c);
+    colors.appendChild(b);
+  }
+  const sizes = document.getElementById('sizes');
+  for (const sz of SIZES) {
+    const b = document.createElement('button');
+    b.className = 'size';
+    b.dataset.size = sz;
+    b.title = `Size ${sz}`;
+    const dot = document.createElement('i');
+    const d = Math.max(3, sz * 1.4);
+    dot.style.width = dot.style.height = d + 'px';
+    b.appendChild(dot);
+    b.onclick = () => setSize(sz);
+    sizes.appendChild(b);
+  }
+  for (const b of document.querySelectorAll('[data-tool]')) b.onclick = () => setTool(b.dataset.tool);
+  document.getElementById('undo').onclick = undo;
+  document.getElementById('redo').onclick = redo;
+  document.getElementById('fit').onclick = fitView;
+  document.getElementById('clear').onclick = clearPage;
+  document.getElementById('export').onclick = exportPage;
+  document.getElementById('addPage').onclick = addPage;
+  document.getElementById('deletePage').onclick = deletePage;
+  document.getElementById('zoom').onclick = () => {
+    zoomAt(innerWidth / 2, innerHeight / 2, 1 / view().z);
+    redraw();
+  };
+  setTool('pen');
+  setColor(tool.color);
+  setSize(tool.size);
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.target instanceof HTMLInputElement) return;
+  const mod = e.ctrlKey || e.metaKey;
+  const k = e.key.toLowerCase();
+  if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+  else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
+  else if (mod) return;
+  else if (k === 'p') setTool('pen');
+  else if (k === 'e') setTool('eraser');
+  else if (k === 'h') setTool('hand');
+  else if (k === 'f') fitView();
+  else if (e.code === 'Space' && !spaceDown) { spaceDown = true; updateCursor(); e.preventDefault(); }
+});
+window.addEventListener('keyup', (e) => {
+  if (e.code === 'Space') { spaceDown = false; updateCursor(); }
+});
+
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+window.addEventListener('resize', resize);
+buildToolbar();
+resize();

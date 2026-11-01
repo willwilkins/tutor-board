@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tutor-board",
+      "runtimeExecutable": "D:\\Programs\\nodejs\\node.exe",
+      "runtimeArgs": ["server.js"],
+      "port": 3000
+    }
+  ]
+}

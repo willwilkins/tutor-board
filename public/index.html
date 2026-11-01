@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Tutor Board</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="ink"></canvas>
+  <canvas id="overlay"></canvas>
+
+  <div id="toolbar" class="bar">
+    <div class="group" id="tools">
+      <button data-tool="pen" title="Pen (P)">Pen</button>
+      <button data-tool="eraser" title="Eraser (E) — the Wacom pen's eraser end also works">Eraser</button>
+      <button data-tool="hand" title="Pan (H, or hold Space, or the pen side button)">Pan</button>
+    </div>
+    <div class="group" id="colors"></div>
+    <div class="group" id="sizes"></div>
+    <div class="group">
+      <button id="undo" title="Undo (Ctrl+Z)">Undo</button>
+      <button id="redo" title="Redo (Ctrl+Y)">Redo</button>
+    </div>
+    <div class="group">
+      <button id="fit" title="Fit everything on screen (F)">Fit</button>
+      <button id="clear" title="Clear this page (undoable)">Clear</button>
+      <button id="export" title="Download this page as a PNG">Export PNG</button>
+    </div>
+  </div>
+
+  <div id="pagebar" class="bar">
+    <div id="pages"></div>
+    <button id="addPage" title="New page">+ Page</button>
+    <button id="deletePage" title="Delete this page">Delete page</button>
+  </div>
+
+  <div id="status" class="bar">
+    <span id="conn" class="dot"></span>
+    <span id="peers">connecting…</span>
+    <span id="zoom" title="Click to reset to 100%">100%</span>
+    <span id="rate" title="Pen samples captured per second in your last stroke">–</span>
+  </div>
+
+  <div id="toast"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
