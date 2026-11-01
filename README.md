@@ -49,7 +49,4 @@ captured. A Wacom pen usually gives 130–240 Hz; a mouse gives about 60–1000 
 
 ## Roadmap
 
-- Share with a student over the internet (Cloudflare Tunnel)
-- iPad / Surface touch handling: palm rejection, two-finger pan and pinch zoom
-- PDF / image backgrounds to write on, and export of all pages to PDF
-- Live cursors, highlighter, shapes and graph paper
+See [BACKLOG.md](BACKLOG.md).
