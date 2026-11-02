@@ -1,12 +1,14 @@
 # Backlog
 
 ## Next
+- [ ] Boards, one per lesson: board list, editable titles, default title `YYYY-MM-DD_Student_Subject` (SPEC R6–R9)
+- [ ] Smooth zoom: zoom buttons, animated button zooms, shortcuts (SPEC R15–R16)
+- [ ] Select and move: lasso/box select, drag to move, delete selection, undoable (SPEC R20–R21)
 - [ ] Share with a student over the internet (Cloudflare Tunnel)
 - [ ] iPad / Surface: palm rejection, two-finger pan, pinch zoom
 
 ## Later
 - [ ] PDF / image backgrounds to write on (worksheets)
-- [ ] Export all pages to PDF
 - [ ] Highlighter
 - [ ] Shapes and graph paper
 
