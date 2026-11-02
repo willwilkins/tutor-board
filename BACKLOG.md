@@ -20,6 +20,12 @@
       writing, e.g. hold Alt and drag to pan, Ctrl + scroll to zoom
       (Space-drag pan and Ctrl + scroll zoom already work)
 
+## UI/UX polish (direction not decided yet)
+- [ ] Make the overall UI/UX better. Still open what this means; start by using the app
+      in a real lesson and noting what feels clunky, then turn those notes into items here.
+      Possible areas: visual style and spacing, toolbar layout, board list screen,
+      feedback when things happen (saved, synced, undo), first-time use
+
 ## Later
 - [ ] PDF / image backgrounds to write on (worksheets)
 - [ ] Highlighter
