@@ -6,10 +6,24 @@
 - [ ] Share with a student over the internet (Cloudflare Tunnel)
 - [ ] iPad / Surface: palm rejection, two-finger pan, pinch zoom
 
+## Toolbar and navigation (no particular order)
+- [ ] Icon toolbar instead of words (with hover tooltips). Should also stop the toolbar
+      wrapping and covering the page tabs in narrow windows
+- [ ] Text tool: click to place a text box, type, edit later
+- [ ] Quick shapes, including graph axes:
+      - "+" axes: crossing at 0, with x and y spaced evenly
+      - "L" axes: first-quadrant style
+      - Shapes are easy to drag, anchor/centre and stretch with handles, like Figma
+- [ ] Selection and pan tools in the toolbar (select ties in with "Select and move" above;
+      Pan is already there as text and becomes an icon)
+- [ ] Keyboard shortcuts for every tool, plus mouse modifiers for fluid navigation and
+      writing, e.g. hold Alt and drag to pan, Ctrl + scroll to zoom
+      (Space-drag pan and Ctrl + scroll zoom already work)
+
 ## Later
 - [ ] PDF / image backgrounds to write on (worksheets)
 - [ ] Highlighter
-- [ ] Shapes and graph paper
+- [ ] Graph paper background
 
 ## Ideas (unsorted)
 - Live cursor showing where the other person is
