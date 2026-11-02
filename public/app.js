@@ -18,7 +18,7 @@ const SIZES = [1.5, 3, 6, 12];
 const ERASER_RADIUS = 10; // screen px
 const MIN_ZOOM = 0.1, MAX_ZOOM = 8;
 
-const board = { pages: [] };
+const board = { title: '', pages: [] };
 const strokes = new Map(); // id -> stroke
 let pageId = null;
 const views = new Map(); // pageId -> { x, y, z } (screen = world * z + offset)
@@ -41,17 +41,26 @@ const toWorldY = (cy, v) => (cy - v.y) / v.z;
 const round = (n, d) => Math.round(n * d) / d;
 
 // ---------- network ----------
+const boardId = decodeURIComponent(location.pathname.match(/^\/b\/([^/]+)/)?.[1] ?? '');
+
 const net = connect({
+  boardId,
   onMessage: handleMessage,
-  onStatus: (online) => {
-    document.getElementById('conn').classList.toggle('online', online);
-    if (!online) document.getElementById('peers').textContent = 'offline – reconnecting…';
+  onStatus: (status) => {
+    document.getElementById('conn').classList.toggle('online', status === 'online');
+    if (status === 'offline') document.getElementById('peers').textContent = 'offline – reconnecting…';
+    if (status === 'notfound') {
+      const n = document.getElementById('notice');
+      n.innerHTML = '<p>This board doesn\'t exist. Check the link, or <a href="/">go to all boards</a>.</p>';
+      n.hidden = false;
+    }
   },
 });
 
 function handleMessage(m) {
   switch (m.type) {
     case 'init': {
+      setBoardTitle(m.board.title);
       board.pages = m.board.pages;
       strokes.clear();
       for (const p of board.pages) for (const s of p.strokes) strokes.set(s.id, s);
@@ -107,8 +116,39 @@ function handleMessage(m) {
     case 'page:delete':
       deletePageLocal(m.id);
       break;
+    case 'board:rename':
+      setBoardTitle(m.title);
+      break;
   }
 }
+
+// ---------- board title ----------
+// Shown top-left; click to rename, Enter or click away to save, Esc to cancel.
+const titleInput = document.getElementById('boardTitle');
+
+function setBoardTitle(t) {
+  board.title = t;
+  document.title = `${t} – Tutor Board`;
+  if (document.activeElement !== titleInput) titleInput.value = t;
+}
+
+titleInput.addEventListener('focus', () => titleInput.select());
+titleInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') titleInput.blur();
+  else if (e.key === 'Escape') {
+    titleInput.value = board.title;
+    titleInput.blur();
+  }
+});
+titleInput.addEventListener('blur', () => {
+  const t = titleInput.value.trim();
+  if (!t || t === board.title) {
+    titleInput.value = board.title;
+    return;
+  }
+  setBoardTitle(t.slice(0, 120));
+  net.send({ type: 'board:rename', title: board.title });
+});
 
 function addStrokeLocal(s) {
   const page = board.pages.find((p) => p.id === s.pageId);
@@ -584,7 +624,8 @@ function exportPage() {
   c.toBlob((blob) => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${page.name.replace(/[^\w\- ]+/g, '').trim() || 'page'}.png`;
+    const name = `${board.title}_${page.name}`.replace(/[^\w\- ]+/g, '').trim();
+    a.download = `${name || 'page'}.png`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }, 'image/png');

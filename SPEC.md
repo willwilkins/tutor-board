@@ -106,9 +106,10 @@ makes handwriting (letters, numbers, small loops) come out illegible. Its main p
 
 ## 6. Current status
 
-v0.1 is done: R1–R5, R10–R14, R17–R19, R22–R26 and R28 are built. Today there is a single
-board; boards (R6–R9), smooth and animated zoom with buttons (R15–R16), select and move
-(R20–R21), tablet support (R27) and sharing (R29) are still to do. See BACKLOG.md.
+v0.2 is done: R1–R14, R17–R19, R22–R26 and R28 are built, including boards (one per
+lesson, with a board list and editable titles). Still to do: smooth and animated zoom with
+buttons (R15–R16), select and move (R20–R21), tablet support (R27) and sharing (R29).
+See BACKLOG.md.
 
 ## 7. Open questions
 1. **Security once shared online:** should a board link need a secret token or password so

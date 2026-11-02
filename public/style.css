@@ -12,10 +12,13 @@
 html, body {
   margin: 0;
   height: 100%;
-  overflow: hidden;
   background: #fff;
   color: var(--text);
   font: 14px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body.board {
+  overflow: hidden;
   overscroll-behavior: none;
   user-select: none;
   -webkit-user-select: none;
@@ -146,3 +149,125 @@ button.active { background: var(--accent-soft); border-color: var(--accent); col
   pointer-events: none;
 }
 #toast.show { opacity: 1; }
+
+/* ---------- board title bar ---------- */
+
+#titlebar {
+  top: 12px;
+  left: 12px;
+  max-width: min(360px, calc(50vw - 380px));
+  min-width: 180px;
+  gap: 2px;
+}
+#titlebar a {
+  color: var(--muted);
+  text-decoration: none;
+  padding: 6px 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+#titlebar a:hover { background: #f1f3f6; color: var(--text); }
+#boardTitle {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 6px 8px;
+  text-overflow: ellipsis;
+}
+#boardTitle:hover { border-color: var(--bar-border); }
+#boardTitle:focus { outline: none; border-color: var(--accent); background: #fff; }
+
+/* Narrow windows: stack the title bar above the toolbar. */
+@media (max-width: 1240px) {
+  #titlebar { max-width: calc(100vw - 24px); }
+  #toolbar { top: 64px; }
+}
+
+#notice {
+  position: fixed;
+  z-index: 4;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  font-size: 16px;
+}
+#notice[hidden] { display: none; }
+#notice a { color: var(--accent); }
+
+/* ---------- home page ---------- */
+
+body.home { background: #f6f7f9; }
+.home-main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 16px 64px;
+}
+.home h1 { font-size: 28px; margin: 0 0 24px; }
+.home h2 { font-size: 16px; margin: 32px 0 12px; }
+.home .card h2 { margin-top: 0; }
+.card {
+  background: #fff;
+  border: 1px solid var(--bar-border);
+  border-radius: 12px;
+  padding: 20px;
+}
+#newBoard {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: end;
+}
+#newBoard label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+#newBoard .wide { grid-column: 1 / -1; }
+#newBoard input {
+  font: inherit;
+  font-size: 15px;
+  color: var(--text);
+  padding: 9px 10px;
+  border: 1px solid var(--bar-border);
+  border-radius: 8px;
+}
+#newBoard input:focus { outline: none; border-color: var(--accent); }
+button.primary {
+  grid-column: 1 / -1;
+  justify-self: start;
+  background: var(--accent);
+  color: #fff;
+  padding: 9px 16px;
+  font-weight: 600;
+}
+button.primary:hover { background: #1d4fc4; }
+button.primary:disabled { opacity: 0.6; cursor: default; }
+
+.board-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.board-list a {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid var(--bar-border);
+  border-radius: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+.board-list a:hover { border-color: var(--accent); }
+.board-title { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
+.muted { color: var(--muted); font-size: 13px; }
+
+@media (max-width: 520px) {
+  #newBoard { grid-template-columns: 1fr; }
+}

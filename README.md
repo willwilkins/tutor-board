@@ -10,8 +10,12 @@ npm install
 npm start
 ```
 
-Open http://localhost:3000. Open a second window on the same address to see live sync.
-The board is saved to `data/board.json` (not committed to git).
+Open http://localhost:3000 to see your boards. Create one per lesson: enter the student
+and subject and it's titled `YYYY-MM-DD_Student_Subject` (you can change the title, and
+rename it later by clicking it at the top-left of the board).
+
+Each board has its own link (`/b/<id>`). Open the same link in a second window to see
+live sync. Boards are saved to `data/boards/` (not committed to git).
 
 ## Why it doesn't scribble like other whiteboards
 

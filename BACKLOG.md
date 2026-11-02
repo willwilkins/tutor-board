@@ -1,7 +1,6 @@
 # Backlog
 
 ## Next
-- [ ] Boards, one per lesson: board list, editable titles, default title `YYYY-MM-DD_Student_Subject` (SPEC R6–R9)
 - [ ] Smooth zoom: zoom buttons, animated button zooms, shortcuts (SPEC R15–R16)
 - [ ] Select and move: lasso/box select, drag to move, delete selection, undoable (SPEC R20–R21)
 - [ ] Share with a student over the internet (Cloudflare Tunnel)
@@ -17,3 +16,4 @@
 
 ## Done
 - [x] v0.1: pressure pen, eraser, pages, endless canvas, pan/zoom, undo/redo, live sync, PNG export
+- [x] v0.2: boards, one per lesson: board list, editable titles, default title `YYYY-MM-DD_Student_Subject` (SPEC R6–R9)

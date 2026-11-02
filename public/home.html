@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tutor Board</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="home">
+  <main class="home-main">
+    <h1>Tutor Board</h1>
+
+    <section class="card">
+      <h2>New lesson board</h2>
+      <form id="newBoard" autocomplete="off">
+        <label>Student
+          <input id="student" name="student" placeholder="e.g. Alex" maxlength="40">
+        </label>
+        <label>Subject
+          <input id="subject" name="subject" placeholder="e.g. Maths" maxlength="40">
+        </label>
+        <label class="wide">Title
+          <input id="title" name="title" maxlength="120">
+        </label>
+        <button type="submit" class="primary">Create board</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Boards</h2>
+      <ul id="boards" class="board-list"></ul>
+      <p id="empty" class="muted" hidden>No boards yet. Create one above to start a lesson.</p>
+    </section>
+  </main>
+
+  <script type="module" src="/home.js"></script>
+</body>
+</html>

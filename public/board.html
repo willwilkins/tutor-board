@@ -4,11 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Tutor Board</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/style.css">
 </head>
-<body>
+<body class="board">
   <canvas id="ink"></canvas>
   <canvas id="overlay"></canvas>
+
+  <div id="titlebar" class="bar">
+    <a href="/" title="All boards">← Boards</a>
+    <input id="boardTitle" value="" spellcheck="false" maxlength="120" title="Click to rename this board" aria-label="Board title">
+  </div>
 
   <div id="toolbar" class="bar">
     <div class="group" id="tools">
@@ -43,7 +48,8 @@
   </div>
 
   <div id="toast"></div>
+  <div id="notice" hidden></div>
 
-  <script type="module" src="app.js"></script>
+  <script type="module" src="/app.js"></script>
 </body>
 </html>
