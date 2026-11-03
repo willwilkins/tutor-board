@@ -1,6 +1,6 @@
 # Tutor Board — Specification
 
-**Status:** Draft v0.2 · **Last updated:** 2026-11-02
+**Status:** Draft v0.3 · **Last updated:** 2026-11-03
 
 ## 1. Purpose
 
@@ -12,8 +12,9 @@ makes handwriting (letters, numbers, small loops) come out illegible. Its main p
 ## 2. Users
 
 - **Tutor (primary):** writes with a Wacom Intuos BT S over USB on Windows.
-- **Student (secondary):** joins a lesson's board from their own device and can draw, erase
-  and add pages, the same as the tutor.
+- **Student (secondary):** joins a lesson's board from their own device, using a link from
+  the tutor, and can draw, erase and add pages, the same as the tutor. They see only that
+  board.
 
 ## 3. Principles
 
@@ -28,6 +29,9 @@ makes handwriting (letters, numbers, small loops) come out illegible. Its main p
    a free option.
 
 ## 4. Requirements
+
+Requirement numbers are fixed IDs. A new requirement takes the next free number, so some
+numbers appear out of order.
 
 ### 4.1 Pen input and drawing
 - **R1.** Capture every pen sample the device sends (coalesced and raw pointer events where
@@ -84,18 +88,32 @@ makes handwriting (letters, numbers, small loops) come out illegible. Its main p
 - **R23.** Everyone on the same board sees strokes live, while they're being drawn.
 - **R24.** Boards are saved automatically on the server and survive restarts and refreshes.
 - **R25.** If the connection drops, the app reconnects on its own and reloads the board.
+- **R30.** Ink drawn while the connection is down stays on screen and is sent once the app
+  reconnects, so nothing written is lost.
 - **Target:** on the same network, a stroke appears for the other person within 100 ms.
 
 ### 4.8 Devices
 - **R26.** Wacom on Windows in Chrome or Edge: fully supported.
-- **R27.** iPad with Apple Pencil, and Surface pen: palm rejection, two-finger pan, pinch
-  zoom.
+- **R27.** iPad with Apple Pencil, and Surface pen: palm rejection (a hand resting on the
+  screen never blocks the pen or moves the page), two-finger pan, pinch zoom.
 
-### 4.9 Sharing
+### 4.9 Sharing and access
 - **R28.** Works on the tutor's own computer, and on the same Wi-Fi via the computer's
   network address.
 - **R29.** A student joins a lesson's board over the internet with a link (Cloudflare
-  Tunnel).
+  Tunnel). Free quick tunnels need no Cloudflare account. Each time the tunnel starts it
+  gets a new address, so after a restart the student needs a new link.
+- **R31.** A **Copy student link** button on the board copies the link for a student to
+  open over the internet.
+- **R32.** The link is the key: a student needs nothing else to join, and there is no
+  password. Board IDs are random and too long to guess (72 bits), and must stay that way.
+- **R33.** Only the tutor sees the board list and can create boards, without logins (see
+  section 5). A student sees only the board they were sent, with no way through to the
+  list or to other boards.
+  - **Note:** tunnel traffic reaches the server from the tutor's own computer, so a check
+    for "is this request local?" can't tell the tutor from a student.
+- **R34.** A malformed request or an oversized message is refused without stopping the
+  server, so one bad request can never end a lesson.
 
 ## 5. Out of scope for now
 - Voice and video (use Zoom or Meet alongside).
@@ -107,12 +125,31 @@ makes handwriting (letters, numbers, small loops) come out illegible. Its main p
 ## 6. Current status
 
 v0.2 is done: R1–R14, R17–R19, R22–R26 and R28 are built, including boards (one per
-lesson, with a board list and editable titles). Still to do: smooth and animated zoom with
-buttons (R15–R16), select and move (R20–R21), tablet support (R27) and sharing (R29).
-See BACKLOG.md.
+lesson, with a board list and editable titles).
+
+Problems found in testing on 2026-11-03:
+- Anyone who can reach the server can list every board and open any of them (R33).
+- Opening a malformed address such as `/%` crashes the server (R34).
+- Ink drawn while the connection is down disappears when the app reconnects and is never
+  saved (R30).
+- On a touch screen, a hand resting on the screen stops the pen drawing until it's lifted
+  (R27).
+
+Still to do, in this order (see BACKLOG.md):
+1. **Sharing over the internet (R29–R34).** Needed before any lesson with a student who
+   isn't on the same Wi-Fi. It also fixes the first three problems above.
+2. **Tablet support (R27).** Students join from their own devices.
+3. **Select and move (R20–R21).**
+4. **Smooth and animated zoom with buttons (R15–R16).** Ctrl+scroll and pinch zoom already
+   work, so this is the least urgent.
 
 ## 7. Open questions
-1. **Security once shared online:** should a board link need a secret token or password so
-   strangers can't get in? (Proposed: a secret token in each board's link.)
-2. **Student access to the board list:** can a student see only the board they were sent,
-   or all their own past boards? (Proposed: only the board they were sent.)
+1. **Where the student link comes from:** the Copy student link button (R31) needs the
+   tunnel's internet address. How does the app learn it? (Proposed: `npm start` also starts
+   the tunnel when cloudflared is installed, then reads and shows the address it prints.)
+
+## 8. Decisions
+- **2026-11-03 · Access to a board:** the board's link is the only key, with no password.
+  The random board ID already works as the secret token (R32). Was open question 1.
+- **2026-11-03 · What a student sees:** only the board they were sent, not their past
+  boards or the board list (R33). Was open question 2.
