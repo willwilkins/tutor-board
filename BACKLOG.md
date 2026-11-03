@@ -1,10 +1,15 @@
 # Backlog
 
-## Next
-- [ ] Smooth zoom: zoom buttons, animated button zooms, shortcuts (SPEC R15–R16)
+## Next (in order)
+- [ ] Share with a student over the internet (Cloudflare Tunnel, SPEC R29–R34):
+      - "Copy student link" button (R31). Needs the tunnel address: see SPEC section 7
+      - Board list and "Create board" for the tutor only; a student sees only their board (R33)
+      - Stop a malformed address such as `/%` crashing the server; cap message size (R34)
+      - Keep ink drawn while offline and send it on reconnect (R30)
+- [ ] iPad / Surface: palm rejection, two-finger pan, pinch zoom (SPEC R27). A resting hand
+      currently stops the pen drawing
 - [ ] Select and move: lasso/box select, drag to move, delete selection, undoable (SPEC R20–R21)
-- [ ] Share with a student over the internet (Cloudflare Tunnel)
-- [ ] iPad / Surface: palm rejection, two-finger pan, pinch zoom
+- [ ] Smooth zoom: zoom buttons, animated button zooms, shortcuts (SPEC R15–R16)
 
 ## Toolbar and navigation (no particular order)
 - [ ] Icon toolbar instead of words (with hover tooltips). Should also stop the toolbar
