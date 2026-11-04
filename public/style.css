@@ -182,9 +182,21 @@ button.active { background: var(--accent-soft); border-color: var(--accent); col
 #boardTitle:hover { border-color: var(--bar-border); }
 #boardTitle:focus { outline: none; border-color: var(--accent); background: #fff; }
 
+/* Tutor-only controls (board list link, student link). The server decides
+   the role; students never see these. */
+body:not([data-role="tutor"]) .tutor-only { display: none !important; }
+
+#sharebar {
+  top: 12px;
+  right: 12px;
+}
+#share { white-space: nowrap; font-weight: 600; color: var(--accent); }
+#share.off { font-weight: normal; color: var(--muted); }
+
 /* Narrow windows: stack the title bar above the toolbar. */
 @media (max-width: 1240px) {
   #titlebar { max-width: calc(100vw - 24px); }
+  body[data-role="tutor"] #titlebar { max-width: calc(100vw - 220px); }
   #toolbar { top: 64px; }
 }
 

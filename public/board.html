@@ -11,8 +11,12 @@
   <canvas id="overlay"></canvas>
 
   <div id="titlebar" class="bar">
-    <a href="/" title="All boards">← Boards</a>
+    <a href="/" class="tutor-only" title="All boards">← Boards</a>
     <input id="boardTitle" value="" spellcheck="false" maxlength="120" title="Click to rename this board" aria-label="Board title">
+  </div>
+
+  <div id="sharebar" class="bar tutor-only">
+    <button id="share" class="off">Starting sharing…</button>
   </div>
 
   <div id="toolbar" class="bar">

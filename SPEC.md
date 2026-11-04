@@ -124,32 +124,54 @@ numbers appear out of order.
 
 ## 6. Current status
 
-v0.2 is done: R1–R14, R17–R19, R22–R26 and R28 are built, including boards (one per
-lesson, with a board list and editable titles).
+v0.3 is done: R1–R14, R17–R19 and R22–R26, plus sharing over the internet (R28–R34).
+A student can join a board from anywhere with a link, sees only that board, and ink
+drawn while offline is kept and sent on reconnect.
 
-Problems found in testing on 2026-11-03:
-- Anyone who can reach the server can list every board and open any of them (R33).
-- Opening a malformed address such as `/%` crashes the server (R34).
-- Ink drawn while the connection is down disappears when the app reconnects and is never
-  saved (R30).
-- On a touch screen, a hand resting on the screen stops the pen drawing until it's lifted
-  (R27).
+Problems found in testing on 2026-11-03, and where they stand:
+- Fixed in v0.3: anyone who could reach the server could list every board (R33).
+- Fixed in v0.3: a malformed address such as `/%` crashed the server, and so did a
+  malformed WebSocket frame (R34).
+- Fixed in v0.3: ink drawn while the connection was down disappeared on reconnect and was
+  never saved (R30).
+- Open: on a touch screen, a hand resting on the screen stops the pen drawing until it's
+  lifted (R27).
+
+Tested on 2026-11-04 with a real Cloudflare tunnel, including a student link opened on an
+iPhone: the board loaded and synced live. That test also found that a finger can only pan
+on a phone (no pen or eraser), and that the toolbar is too big for a phone screen (see
+BACKLOG.md).
 
 Still to do, in this order (see BACKLOG.md):
-1. **Sharing over the internet (R29–R34).** Needed before any lesson with a student who
-   isn't on the same Wi-Fi. It also fixes the first three problems above.
-2. **Tablet support (R27).** Students join from their own devices.
-3. **Select and move (R20–R21).**
-4. **Smooth and animated zoom with buttons (R15–R16).** Ctrl+scroll and pinch zoom already
+1. **Tablet support (R27).** Students join from their own devices.
+2. **Select and move (R20–R21).**
+3. **Smooth and animated zoom with buttons (R15–R16).** Ctrl+scroll and pinch zoom already
    work, so this is the least urgent.
 
 ## 7. Open questions
-1. **Where the student link comes from:** the Copy student link button (R31) needs the
-   tunnel's internet address. How does the app learn it? (Proposed: `npm start` also starts
-   the tunnel when cloudflared is installed, then reads and shows the address it prints.)
+None right now.
 
 ## 8. Decisions
 - **2026-11-03 · Access to a board:** the board's link is the only key, with no password.
   The random board ID already works as the secret token (R32). Was open question 1.
 - **2026-11-03 · What a student sees:** only the board they were sent, not their past
   boards or the board list (R33). Was open question 2.
+- **2026-11-03 · Where the student link comes from:** `npm start` runs
+  `cloudflared tunnel --url http://127.0.0.1:<student port>` when cloudflared is installed,
+  reads the `https://<name>.trycloudflare.com` address from its log output, and the
+  **Copy student link** button uses it (R31). If cloudflared is missing or fails, the app
+  starts as normal and the button says sharing is off. The tunnel stops with the app.
+- **2026-11-03 · Telling the tutor from a student:** the tunnel points at a second port
+  (main port + 1, so 3001) that listens on this computer only and serves just the board
+  page, its files and the live connection. On the main port, only requests from this
+  computer (loopback or its own network address), using `localhost`, an IP address or the
+  computer's name, count as the tutor; everyone else, including same-Wi-Fi students,
+  is a student (R33). The name check stops other websites reaching the board list
+  through the tutor's browser.
+- **2026-11-03 · No ink lost offline:** each browser tab numbers its messages and keeps
+  them until the server confirms they're saved to disk, then resends the rest after
+  reconnecting. Resends are safe to repeat (R30). A tab that hears nothing back for 15 s
+  reconnects, so a connection that dies silently is noticed.
+- **2026-11-03 · Message size cap:** 2 MB per WebSocket message (was the library default
+  of 100 MB). A minute of non-stop writing is about 350 KB, and the app splits strokes
+  over 10,000 samples into several messages (R34).

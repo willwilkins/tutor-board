@@ -1,11 +1,13 @@
 # Backlog
 
+## Bugs (found testing a student link on an iPhone, 2026-11-04)
+- [ ] On a phone, a finger can only pan: Pen and Eraser do nothing even when selected.
+      Touch input is always treated as panning (made for palm rejection), so a student
+      with no stylus can't write. Ties in with the iPad / Surface item below (SPEC R27)
+- [ ] The page-tab bar's white button doesn't match "+ Page" and "Delete page" (it shows as
+      a blank white box next to them)
+
 ## Next (in order)
-- [ ] Share with a student over the internet (Cloudflare Tunnel, SPEC R29–R34):
-      - "Copy student link" button (R31). Needs the tunnel address: see SPEC section 7
-      - Board list and "Create board" for the tutor only; a student sees only their board (R33)
-      - Stop a malformed address such as `/%` crashing the server; cap message size (R34)
-      - Keep ink drawn while offline and send it on reconnect (R30)
 - [ ] iPad / Surface: palm rejection, two-finger pan, pinch zoom (SPEC R27). A resting hand
       currently stops the pen drawing
 - [ ] Select and move: lasso/box select, drag to move, delete selection, undoable (SPEC R20–R21)
@@ -13,7 +15,14 @@
 
 ## Toolbar and navigation (no particular order)
 - [ ] Icon toolbar instead of words (with hover tooltips). Should also stop the toolbar
-      wrapping and covering the page tabs in narrow windows
+      wrapping and covering the page tabs in narrow windows. Use icons instead of text
+      wherever possible (toolbar, page bar, status bar)
+- [ ] Phone layout: the toolbar and colour palette take up too much of a phone screen.
+      Use icons and show fewer options at a time (e.g. tap the current colour to open the
+      palette)
+- [ ] Deleting with a small ✕ in a circle at the top-left corner (e.g. of a page tab),
+      which opens a confirmation popup before anything is deleted (in place of the
+      browser's own confirm box)
 - [ ] Text tool: click to place a text box, type, edit later
 - [ ] Quick shapes, including graph axes:
       - "+" axes: crossing at 0, with x and y spaced evenly
@@ -42,3 +51,6 @@
 ## Done
 - [x] v0.1: pressure pen, eraser, pages, endless canvas, pan/zoom, undo/redo, live sync, PNG export
 - [x] v0.2: boards, one per lesson: board list, editable titles, default title `YYYY-MM-DD_Student_Subject` (SPEC R6–R9)
+- [x] v0.3: share with a student over the internet (Cloudflare Tunnel, SPEC R29–R34): "Copy student
+      link" button, board list for the tutor only, malformed requests and oversized messages no
+      longer crash the server, ink drawn while offline is kept and sent on reconnect

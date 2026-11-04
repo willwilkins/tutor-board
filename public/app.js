@@ -17,6 +17,10 @@ const COLORS = ['#1d1d1f', '#1f5fd1', '#d62d2d', '#1f9d55', '#e67e00', '#7b3fd1'
 const SIZES = [1.5, 3, 6, 12];
 const ERASER_RADIUS = 10; // screen px
 const MIN_ZOOM = 0.1, MAX_ZOOM = 8;
+// Longest run of points in one message (10,000 samples, about 250 KB), so
+// even a very long stroke never hits the server's message size limit.
+const CHUNK = 30000;
+const isTutor = document.body.dataset.role === 'tutor';
 
 const board = { title: '', pages: [] };
 const strokes = new Map(); // id -> stroke
@@ -26,7 +30,9 @@ const tool = { mode: 'pen', color: COLORS[0], size: SIZES[1] };
 const undoStack = [];
 const redoStack = [];
 
-const clientId = Math.random().toString(36).slice(2, 8);
+// This tab's id: prefixes our stroke ids, and lets the server track which of
+// our messages it has saved. (getRandomValues also works over plain http.)
+const clientId = Array.from(crypto.getRandomValues(new Uint32Array(2)), (n) => n.toString(36)).join('');
 let idCounter = 0;
 const newId = () => `${clientId}-${Date.now().toString(36)}-${(idCounter++).toString(36)}`;
 
@@ -43,32 +49,40 @@ const round = (n, d) => Math.round(n * d) / d;
 // ---------- network ----------
 const boardId = decodeURIComponent(location.pathname.match(/^\/b\/([^/]+)/)?.[1] ?? '');
 
+let online = false;
+
 const net = connect({
   boardId,
+  clientId,
   onMessage: handleMessage,
   onStatus: (status) => {
-    document.getElementById('conn').classList.toggle('online', status === 'online');
-    if (status === 'offline') document.getElementById('peers').textContent = 'offline – reconnecting…';
+    online = status === 'online';
+    document.getElementById('conn').classList.toggle('online', online);
+    if (status === 'offline') document.getElementById('peers').textContent = 'offline – reconnecting (your ink is kept)';
     if (status === 'notfound') {
       const n = document.getElementById('notice');
-      n.innerHTML = '<p>This board doesn\'t exist. Check the link, or <a href="/">go to all boards</a>.</p>';
+      n.innerHTML = isTutor
+        ? '<p>This board doesn\'t exist. Check the link, or <a href="/">go to all boards</a>.</p>'
+        : '<p>This board link doesn\'t work. Ask your tutor for a new one.</p>';
       n.hidden = false;
     }
   },
 });
 
+// Ink kept while offline only lives in this tab until it's sent, so warn
+// before the tab is closed then.
+window.addEventListener('beforeunload', (e) => {
+  if (!online && net.unsent) e.preventDefault();
+});
+
 function handleMessage(m) {
   switch (m.type) {
-    case 'init': {
-      setBoardTitle(m.board.title);
-      board.pages = m.board.pages;
-      strokes.clear();
-      for (const p of board.pages) for (const s of p.strokes) strokes.set(s.id, s);
-      if (!currentPage()) pageId = board.pages[0]?.id ?? null;
-      renderPages();
-      redraw();
+    case 'init':
+      loadBoard(m.board);
       break;
-    }
+    case 'share':
+      setShare(m);
+      break;
     case 'presence':
       document.getElementById('peers').textContent =
         m.count === 1 ? 'only you connected' : `${m.count} connected`;
@@ -122,6 +136,99 @@ function handleMessage(m) {
   }
 }
 
+// The server sends the whole board on every (re)connect. Take it, then put
+// back our own changes it hasn't saved yet: ink drawn while offline, or sent
+// just before the connection dropped. net.js sends those again right after.
+function loadBoard(serverBoard) {
+  const before = new Map(strokes); // what is on screen now
+  const ours = (s) => s.id.startsWith(clientId + '-');
+  setBoardTitle(serverBoard.title);
+  board.pages = serverBoard.pages;
+  strokes.clear();
+  for (const p of board.pages) {
+    // For our own strokes, keep the copy drawn here: it has every point,
+    // including any the server hasn't got yet (and the stroke being drawn).
+    p.strokes = p.strokes.map((s) => (ours(s) && before.get(s.id)) || s);
+    for (const s of p.strokes) strokes.set(s.id, s);
+  }
+  for (const m of net.pending()) {
+    switch (m.type) {
+      case 'stroke:start':
+      case 'stroke:add': {
+        // Only if it's still on screen here (not erased since).
+        const s = before.get(m.stroke.id);
+        if (s) addStrokeLocal(s);
+        break;
+      }
+      case 'stroke:delete':
+        removeStrokesLocal(m.pageId, m.ids);
+        break;
+      case 'page:add':
+        if (!board.pages.some((p) => p.id === m.page.id)) board.pages.push({ ...m.page, strokes: [] });
+        break;
+      case 'page:rename': {
+        const p = board.pages.find((x) => x.id === m.id);
+        if (p) p.name = m.name;
+        break;
+      }
+      case 'page:delete':
+        dropPage(m.id);
+        break;
+      case 'board:rename':
+        setBoardTitle(m.title);
+        break;
+    }
+  }
+  if (!currentPage()) pageId = board.pages[0]?.id ?? null;
+  renderPages();
+  redraw();
+}
+
+// ---------- student link (tutor only) ----------
+const shareBtn = document.getElementById('share');
+let share = null;
+
+function setShare(s) {
+  share = s;
+  shareBtn.textContent =
+    s.status === 'on' ? 'Copy student link' : s.status === 'starting' ? 'Starting sharing…' : 'Sharing is off';
+  shareBtn.classList.toggle('off', s.status !== 'on');
+  shareBtn.title =
+    s.status === 'on' ? 'Copy a link a student can open from anywhere. A new link is needed after a restart.'
+    : s.status === 'starting' ? 'Connecting to Cloudflare…'
+    : `Sharing is off: ${s.reason}`;
+}
+
+shareBtn.addEventListener('click', async () => {
+  if (!share || share.status === 'starting') {
+    toast('Sharing is still starting. Try again in a few seconds.');
+    return;
+  }
+  if (share.status !== 'on') {
+    toast(`Sharing is off: ${share.reason}`, 6000);
+    return;
+  }
+  const link = `${share.url}/b/${boardId}`;
+  if (await copyText(link)) toast(`Copied ${link}`, 4000);
+  else prompt('Copy this link for your student:', link);
+});
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // The clipboard API needs https or localhost; fall back to the old way.
+    const t = document.createElement('textarea');
+    t.value = text;
+    document.body.appendChild(t);
+    t.select();
+    const ok = document.execCommand('copy');
+    t.remove();
+    return ok;
+  }
+}
+
 // ---------- board title ----------
 // Shown top-left; click to rename, Enter or click away to save, Esc to cancel.
 const titleInput = document.getElementById('boardTitle');
@@ -165,13 +272,18 @@ function removeStrokesLocal(pid, ids) {
   for (const id of set) strokes.delete(id);
 }
 
-function deletePageLocal(id) {
+function dropPage(id) {
   const page = board.pages.find((p) => p.id === id);
-  if (!page) return;
+  if (!page) return false;
   for (const s of page.strokes) strokes.delete(s.id);
   board.pages = board.pages.filter((p) => p !== page);
   views.delete(id);
   if (pageId === id) pageId = board.pages[0]?.id ?? null;
+  return true;
+}
+
+function deletePageLocal(id) {
+  if (!dropPage(id)) return;
   renderPages();
   redraw();
 }
@@ -432,11 +544,28 @@ function queueFlush() {
 function flush() {
   flushQueued = false;
   if (!live) return;
-  const p = live.stroke.points;
-  if (p.length > live.sent) {
-    net.send({ type: 'stroke:points', id: live.stroke.id, pageId: live.stroke.pageId, points: p.slice(live.sent) });
-    live.sent = p.length;
+  sendPoints(live.stroke, live.sent);
+  live.sent = live.stroke.points.length;
+}
+
+// Sends a stroke's points from index `from` on. `at` tells the server where
+// they go, so a resend after reconnecting never doubles them up.
+function sendPoints(s, from) {
+  const p = s.points;
+  for (let i = from; i < p.length; i += CHUNK) {
+    net.send({ type: 'stroke:points', id: s.id, pageId: s.pageId, at: i, points: p.slice(i, i + CHUNK) });
   }
+}
+
+// Sends a whole stroke (undo/redo): one message, or several if it's very long.
+function sendStroke(s) {
+  if (s.points.length <= CHUNK) {
+    net.send({ type: 'stroke:add', stroke: s });
+    return;
+  }
+  net.send({ type: 'stroke:start', stroke: { ...s, points: s.points.slice(0, CHUNK) } });
+  sendPoints(s, CHUNK);
+  net.send({ type: 'stroke:end', id: s.id, pageId: s.pageId });
 }
 
 function eraseAt(cx, cy) {
@@ -513,13 +642,15 @@ function removeAndSend(list) {
   }
   for (const [pid, ids] of byPage) {
     removeStrokesLocal(pid, ids);
-    net.send({ type: 'stroke:delete', pageId: pid, ids });
+    for (let i = 0; i < ids.length; i += 5000) {
+      net.send({ type: 'stroke:delete', pageId: pid, ids: ids.slice(i, i + 5000) });
+    }
   }
 }
 
 function addAndSend(list) {
   for (const s of list) {
-    if (addStrokeLocal(s)) net.send({ type: 'stroke:add', stroke: s });
+    if (addStrokeLocal(s)) sendStroke(s);
   }
 }
 
@@ -710,12 +841,12 @@ window.addEventListener('keyup', (e) => {
 });
 
 let toastTimer;
-function toast(msg) {
+function toast(msg, ms = 2200) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  toastTimer = setTimeout(() => t.classList.remove('show'), ms);
 }
 
 window.addEventListener('resize', resize);
