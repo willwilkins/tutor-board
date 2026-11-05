@@ -283,3 +283,8 @@ button.primary:disabled { opacity: 0.6; cursor: default; }
 @media (max-width: 520px) {
   #newBoard { grid-template-columns: 1fr; }
 }
+
+/* Too narrow to share the bottom row with the status bar: sit above it. */
+@media (max-width: 540px) {
+  #pagebar { max-width: calc(100vw - 24px); bottom: 58px; }
+}
