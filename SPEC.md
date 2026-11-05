@@ -131,29 +131,34 @@ v0.3 is done: R1–R14, R17–R19 and R22–R26, plus sharing over the internet 
 A student can join a board from anywhere with a link, sees only that board, and ink
 drawn while offline is kept and sent on reconnect.
 
+Touch screens (R27, R35) are done as of 2026-11-05: a finger draws and erases when no pen
+has been used on the device, two fingers pan and pinch zoom, and once a pen has been used
+a resting hand is ignored (see Decisions). Checked with simulated touch and pen input in
+Chrome; still to try on a real iPad, with and without a Pencil.
+
 Problems found in testing on 2026-11-03, and where they stand:
 - Fixed in v0.3: anyone who could reach the server could list every board (R33).
 - Fixed in v0.3: a malformed address such as `/%` crashed the server, and so did a
   malformed WebSocket frame (R34).
 - Fixed in v0.3: ink drawn while the connection was down disappeared on reconnect and was
   never saved (R30).
-- Open: on a touch screen, a hand resting on the screen stops the pen drawing until it's
-  lifted (R27).
+- Fixed on 2026-11-05: on a touch screen, a hand resting on the screen stopped the pen
+  drawing until it was lifted (R27).
 
 Tested on 2026-11-04 with a real Cloudflare tunnel, including a student link opened on an
-iPhone: the board loaded and synced live. That test also found that a finger can only pan
-on a touch screen (no pen or eraser, R35), and that the toolbar is too big for a phone
-screen (see BACKLOG.md). The page tabs were also hidden on a phone; fixed on 2026-11-05.
+iPhone: the board loaded and synced live. That test also found that a finger could only
+pan on a touch screen (no pen or eraser, R35; fixed on 2026-11-05), and that the toolbar
+is too big for a phone screen (see BACKLOG.md). The page tabs were also hidden on a phone;
+fixed on 2026-11-05.
 
 Still to do, in this order (see BACKLOG.md):
-1. **iPad support (R27, R35).** Students join from their own devices, often an iPad.
-2. **Icon toolbar.** On an iPad the toolbar wraps into 3 rows; icons also leave room for
+1. **Icon toolbar.** On an iPad the toolbar wraps into 3 rows; icons also leave room for
    new tools.
-3. **A student can't wipe the tutor's work** (open question 1).
-4. **Use it in a real lesson**, then re-sort the backlog from what that shows.
-5. **Select and move (R20–R21).**
-6. **Paste an image onto a page** (worksheets, exam questions).
-7. **Smooth and animated zoom with buttons (R15–R16), and shortcuts.** Ctrl+scroll and
+2. **A student can't wipe the tutor's work** (open question 1).
+3. **Use it in a real lesson**, then re-sort the backlog from what that shows.
+4. **Select and move (R20–R21).**
+5. **Paste an image onto a page** (worksheets, exam questions).
+6. **Smooth and animated zoom with buttons (R15–R16), and shortcuts.** Ctrl+scroll and
    trackpad pinch already work, so this is the least urgent.
 
 ## 7. Open questions
@@ -189,3 +194,10 @@ Still to do, in this order (see BACKLOG.md):
 - **2026-11-05 · Phones:** students are unlikely to join a lesson from a phone, so
   phone-only problems are low priority and are fixed only when the fix is quick. The iPad
   is the student tablet that matters (R27, R35).
+- **2026-11-05 · Fingers and the pen (R27, R35):** two fingers always pan and pinch zoom.
+  One finger uses the current tool until a pen (including Apple Pencil hover) is first
+  used on the device; the browser then remembers it, and from then on one finger does
+  nothing (it's probably a palm) unless the Pan tool is selected. The pen always wins: it
+  cancels a finger gesture and fingers are ignored while it's down. A finger stroke that
+  turns into a pinch, is interrupted by the pen, or is cancelled by iOS is deleted for
+  everyone and left out of undo. A cancelled pen stroke is kept.

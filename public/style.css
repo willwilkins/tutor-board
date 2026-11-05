@@ -22,6 +22,7 @@ body.board {
   overscroll-behavior: none;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none; /* no iOS menu on a long press */
 }
 
 canvas {

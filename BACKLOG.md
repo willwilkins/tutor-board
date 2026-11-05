@@ -4,23 +4,9 @@ Students are most likely to join from a laptop or an iPad, not a phone. Phone-on
 problems are low priority and only worth fixing when the fix is quick.
 
 ## Bugs
-- [ ] On a touch screen with no stylus (an iPad without a Pencil, or a phone), a finger can
-      only pan: Pen and Eraser do nothing even when selected. Touch input is always treated
-      as panning (made for palm rejection), so a student with no stylus can't write.
-      Fixed by the iPad item below (SPEC R27, R35). Found on an iPhone, 2026-11-04
+(none open)
 
 ## Next (in order)
-- [ ] iPad / Surface: a finger draws when there's no stylus, palm rejection with a Pencil,
-      two-finger pan, pinch zoom (SPEC R27, R35). Today a resting hand stops the pen drawing
-      and touch screens have no pinch zoom. All of this comes from one place: every touch
-      pans, and only one gesture can run at a time (pointerdown in app.js). Planned rules:
-      - Two fingers always pan and pinch zoom
-      - No pen used yet on this device: one finger uses the current tool. If a second
-        finger lands mid-stroke, the stroke is cancelled (it was a pinch, not writing)
-      - Once a pen has been used (remembered on the device): one finger does nothing
-        (it's probably a palm), unless the Pan tool is selected
-      - The pen always wins: it cancels any finger gesture in progress, and fingers are
-        ignored while the pen is down
 - [ ] Icon toolbar instead of words (with hover tooltips), including Select and Pan tools.
       On an iPad in portrait the toolbar wraps into 3 rows across the top of the screen,
       and on a desktop it wraps in any window narrower than about 1760 px. Two causes: its
@@ -73,3 +59,16 @@ problems are low priority and only worth fixing when the fix is quick.
       longer crash the server, ink drawn while offline is kept and sent on reconnect
 - [x] Phone: the page tabs were hidden (the page bar shrank to 35 px and showed as a blank
       white box). On narrow screens it now sits above the status bar (2026-11-05)
+- [x] Bug: on a touch screen with no stylus, a finger could only pan, so a student with no
+      stylus couldn't write. Found on an iPhone, 2026-11-04; fixed 2026-11-05
+- [x] iPad / Surface (SPEC R27, R35, 2026-11-05). Tested with simulated touch and pen
+      input; still to try on a real iPad. Rules:
+      - Two fingers always pan and pinch zoom; a third finger is ignored
+      - No pen used yet on this device: one finger uses the current tool. If a second
+        finger lands mid-stroke, the stroke is cancelled (it was a pinch, not writing)
+      - Once a pen has been used (remembered on the device): one finger does nothing
+        (it's probably a palm), unless the Pan tool is selected
+      - The pen always wins: it cancels any finger gesture in progress, and fingers are
+        ignored while the pen is down
+      - After a pinch, or with fingers down while the pen was down, nothing new starts
+        until all fingers are up

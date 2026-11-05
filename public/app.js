@@ -387,7 +387,7 @@ function drawEraserCursor(cx, cy) {
 }
 
 // ---------- input ----------
-// act = the current gesture: { kind: 'draw' | 'erase' | 'pan', pointerId, ... }
+// act = the current gesture: { kind: 'draw' | 'erase' | 'pan', pointerId, touch, ... }
 let act = null;
 // live = the stroke being drawn and how many of its numbers were already sent.
 let live = null;
@@ -395,6 +395,39 @@ let spaceDown = false;
 let lastRate = null;
 
 const useRawUpdate = 'onpointerrawupdate' in window;
+
+// Touch screens (SPEC R27, R35). Fingers on the canvas: pointerId -> { x, y }.
+const touches = new Map();
+// Two fingers pan and pinch zoom: { ids, x, y, d } = their midpoint and distance.
+let pinch = null;
+// After a pinch, or with the pen down, no finger starts anything until all are up.
+let touchBlocked = false;
+
+// Once a pen (Apple Pencil, Surface pen, Wacom) has been used on this device,
+// one finger is probably a palm, so it only pans, and only with the Pan tool.
+const PEN_KEY = 'tutorboard.penUsed';
+let penUsed = false;
+try {
+  penUsed = localStorage.getItem(PEN_KEY) === '1';
+} catch { /* storage blocked: treat as no pen yet */ }
+
+function notePen(e) {
+  if (penUsed || e.pointerType !== 'pen') return;
+  penUsed = true;
+  try {
+    localStorage.setItem(PEN_KEY, '1');
+  } catch { /* storage blocked: remember for this tab only */ }
+}
+// pointerover also fires when a pen starts hovering, so a Pencil counts even
+// before it touches. (Not pointermove, to keep work out of the drawing path.)
+window.addEventListener('pointerover', notePen, true);
+window.addEventListener('pointerdown', notePen, true);
+
+function capture(e) {
+  try {
+    overlay.setPointerCapture(e.pointerId);
+  } catch { /* the pointer is already gone */ }
+}
 
 function pressureOf(e) {
   if (e.pointerType !== 'pen') return 0.5;
@@ -406,16 +439,88 @@ function isEraserTip(e) {
 }
 
 overlay.addEventListener('pointerdown', (e) => {
-  if (act || !currentPage()) return;
+  if (!currentPage()) return;
   e.preventDefault();
+  if (e.pointerType === 'touch') {
+    touchDown(e);
+    return;
+  }
+  if (act) {
+    if (!act.touch) return;
+    finishGesture(true); // the pen wins over fingers
+  }
+  // Fingers still on the screen (a resting hand) stay ignored until all are up.
+  pinch = null;
+  if (touches.size) touchBlocked = true;
+
   let kind;
-  if (e.pointerType === 'touch' || e.button === 1 || e.button === 2 || tool.mode === 'hand' || spaceDown) kind = 'pan';
+  if (e.button === 1 || e.button === 2 || tool.mode === 'hand' || spaceDown) kind = 'pan';
   else if (isEraserTip(e) || tool.mode === 'eraser') kind = 'erase';
   else if (e.button === 0) kind = 'draw';
   else return;
+  startGesture(e, kind);
+});
 
-  overlay.setPointerCapture(e.pointerId);
-  act = { kind, pointerId: e.pointerId, lastX: e.clientX, lastY: e.clientY };
+function touchDown(e) {
+  // The first finger down: nothing else is touching, so start from a clean slate.
+  if (e.isPrimary) {
+    if (act?.touch) finishGesture(true);
+    touches.clear();
+    pinch = null;
+    touchBlocked = false;
+  }
+  touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  capture(e);
+  if (act && !act.touch) {
+    touchBlocked = true; // fingers are ignored while the pen is down
+    return;
+  }
+  if (touchBlocked || pinch) return; // a third finger is ignored
+  if (touches.size === 2) {
+    startPinch();
+    return;
+  }
+  if (touches.size !== 1) return;
+  if (tool.mode === 'hand' || spaceDown) startGesture(e, 'pan');
+  else if (!penUsed) startGesture(e, tool.mode === 'eraser' ? 'erase' : 'draw');
+  // Otherwise it's probably a palm, so it does nothing.
+}
+
+function startPinch() {
+  // A finger stroke was the start of a pinch, not writing: cancel it.
+  if (act) finishGesture(true);
+  const [a, b] = touches.values();
+  pinch = { ids: [...touches.keys()], x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) };
+}
+
+// The page follows the midpoint of the two fingers and zooms around it.
+function movePinch() {
+  const a = touches.get(pinch.ids[0]);
+  const b = touches.get(pinch.ids[1]);
+  const x = (a.x + b.x) / 2, y = (a.y + b.y) / 2;
+  const d = Math.hypot(a.x - b.x, a.y - b.y);
+  const v = view();
+  v.x += x - pinch.x;
+  v.y += y - pinch.y;
+  if (pinch.d > 0 && d > 0) zoomAt(x, y, d / pinch.d);
+  pinch.x = x;
+  pinch.y = y;
+  pinch.d = d;
+  requestRedraw();
+}
+
+function touchUp(e) {
+  if (!touches.delete(e.pointerId)) return;
+  if (pinch && pinch.ids.includes(e.pointerId)) {
+    pinch = null;
+    touchBlocked = true; // the finger left behind doesn't start drawing
+  }
+  if (!touches.size) touchBlocked = false;
+}
+
+function startGesture(e, kind) {
+  capture(e);
+  act = { kind, pointerId: e.pointerId, touch: e.pointerType === 'touch', lastX: e.clientX, lastY: e.clientY };
 
   if (kind === 'draw') {
     const s = { id: newId(), pageId, color: tool.color, size: tool.size, points: [] };
@@ -435,7 +540,7 @@ overlay.addEventListener('pointerdown', (e) => {
   } else {
     overlay.style.cursor = 'grabbing';
   }
-});
+}
 
 function addPoint(e) {
   const s = live.stroke;
@@ -462,6 +567,7 @@ function samplesOf(e) {
 }
 
 function handleMove(e) {
+  if (e.pointerType === 'touch' && !touchMove(e)) return;
   if (!act) {
     if (tool.mode === 'eraser' || isEraserTip(e)) drawEraserCursor(e.clientX, e.clientY);
     return;
@@ -507,22 +613,57 @@ if (useRawUpdate) {
   });
 }
 
+// Keeps track of where each finger is. Returns true if this finger is the one
+// running the current gesture, so handleMove should go on with it.
+function touchMove(e) {
+  const t = touches.get(e.pointerId);
+  if (!t) return false;
+  t.x = e.clientX;
+  t.y = e.clientY;
+  if (pinch) {
+    if (pinch.ids.includes(e.pointerId)) movePinch();
+    return false;
+  }
+  return act?.pointerId === e.pointerId;
+}
+
 overlay.addEventListener('pointerup', endGesture);
 overlay.addEventListener('pointercancel', endGesture);
 overlay.addEventListener('contextmenu', (e) => e.preventDefault());
 
 function endGesture(e) {
+  if (e.pointerType === 'touch') touchUp(e);
   if (!act || e.pointerId !== act.pointerId) return;
+  // iOS cancels a touch it decides was a palm or a system gesture, so a
+  // cancelled finger stroke is thrown away. A cancelled pen stroke is kept.
+  finishGesture(act.touch && e.type === 'pointercancel');
+  if (tool.mode === 'eraser' && e.pointerType !== 'touch') drawEraserCursor(e.clientX, e.clientY);
+}
+
+// Ends the current gesture. With `cancel` (a finger stroke that turned into a
+// pinch, was interrupted by the pen, or was cancelled by iOS), the stroke is
+// removed here and for everyone else, and left out of undo. Strokes already
+// erased stay erased and can be undone.
+function finishGesture(cancel) {
   if (act.kind === 'draw') {
     const s = live.stroke;
-    drawTail(ictx, s);
-    flush();
-    net.send({ type: 'stroke:end', id: s.id, pageId: s.pageId });
-    pushUndo({ type: 'add', strokes: [s] });
-    const secs = (act.t1 - act.t0) / 1000;
-    if (secs > 0.15) {
-      lastRate = Math.round((act.samples - 1) / secs);
-      document.getElementById('rate').textContent = `pen ${lastRate} Hz`;
+    if (cancel) {
+      // Sent after its start and points, so a resend after reconnecting
+      // also ends with the stroke deleted.
+      flush();
+      removeStrokesLocal(s.pageId, [s.id]);
+      net.send({ type: 'stroke:delete', pageId: s.pageId, ids: [s.id] });
+      requestRedraw();
+    } else {
+      drawTail(ictx, s);
+      flush();
+      net.send({ type: 'stroke:end', id: s.id, pageId: s.pageId });
+      pushUndo({ type: 'add', strokes: [s] });
+      const secs = (act.t1 - act.t0) / 1000;
+      if (secs > 0.15) {
+        lastRate = Math.round((act.samples - 1) / secs);
+        document.getElementById('rate').textContent = `pen ${lastRate} Hz`;
+      }
     }
     live = null;
   } else if (act.kind === 'erase') {
@@ -531,7 +672,6 @@ function endGesture(e) {
   act = null;
   clearOverlay();
   updateCursor();
-  if (tool.mode === 'eraser') drawEraserCursor(e.clientX, e.clientY);
 }
 
 // Send new points once per frame (every point is sent, just grouped).
