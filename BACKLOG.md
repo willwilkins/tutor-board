@@ -1,38 +1,52 @@
 # Backlog
 
-## Bugs (found testing a student link on an iPhone, 2026-11-04)
-- [ ] On a phone, a finger can only pan: Pen and Eraser do nothing even when selected.
-      Touch input is always treated as panning (made for palm rejection), so a student
-      with no stylus can't write. Ties in with the iPad / Surface item below (SPEC R27)
-- [ ] The page-tab bar's white button doesn't match "+ Page" and "Delete page" (it shows as
-      a blank white box next to them)
+Students are most likely to join from a laptop or an iPad, not a phone. Phone-only
+problems are low priority and only worth fixing when the fix is quick.
+
+## Bugs
+- [ ] On a touch screen with no stylus (an iPad without a Pencil, or a phone), a finger can
+      only pan: Pen and Eraser do nothing even when selected. Touch input is always treated
+      as panning (made for palm rejection), so a student with no stylus can't write.
+      Fixed by the iPad item below (SPEC R27, R35). Found on an iPhone, 2026-11-04
 
 ## Next (in order)
-- [ ] iPad / Surface: palm rejection, two-finger pan, pinch zoom (SPEC R27). A resting hand
-      currently stops the pen drawing
+- [ ] iPad / Surface: a finger draws when there's no stylus, palm rejection with a Pencil,
+      two-finger pan, pinch zoom (SPEC R27, R35). Today a resting hand stops the pen drawing
+      and touch screens have no pinch zoom. All of this comes from one place: every touch
+      pans, and only one gesture can run at a time (pointerdown in app.js). Planned rules:
+      - Two fingers always pan and pinch zoom
+      - No pen used yet on this device: one finger uses the current tool. If a second
+        finger lands mid-stroke, the stroke is cancelled (it was a pinch, not writing)
+      - Once a pen has been used (remembered on the device): one finger does nothing
+        (it's probably a palm), unless the Pan tool is selected
+      - The pen always wins: it cancels any finger gesture in progress, and fingers are
+        ignored while the pen is down
+- [ ] Icon toolbar instead of words (with hover tooltips), including Select and Pan tools.
+      On an iPad in portrait the toolbar wraps into 3 rows across the top of the screen,
+      and on a desktop it wraps in any window narrower than about 1760 px. Two causes: its
+      full width is 880 px, and `left: 50%` limits it to half the screen. Use icons
+      wherever possible (toolbar, page bar, status bar). Do this before adding more tools
+- [ ] Stop a student wiping the tutor's work. Delete page can't be undone and the server
+      lets anyone do it. Clear can only be undone in the tab that pressed it, so the tutor
+      can't undo a student's Clear. See SPEC open question 1
+- [ ] Use it in a real lesson with a student on an iPad, then turn what feels clunky into
+      items here (see UI/UX polish)
 - [ ] Select and move: lasso/box select, drag to move, delete selection, undoable (SPEC R20–R21)
-- [ ] Smooth zoom: zoom buttons, animated button zooms, shortcuts (SPEC R15–R16)
+- [ ] Paste an image (e.g. a screenshot of an exam question) onto a page to write on.
+      Images need their own upload path, because live messages are capped at 2 MB
+- [ ] Smooth zoom and shortcuts: zoom buttons, animated button zooms (SPEC R15–R16),
+      keyboard shortcuts for every tool, mouse modifiers such as Alt-drag to pan
+      (Space-drag pan and Ctrl + scroll zoom already work)
 
-## Toolbar and navigation (no particular order)
-- [ ] Icon toolbar instead of words (with hover tooltips). Should also stop the toolbar
-      wrapping and covering the page tabs in narrow windows. Use icons instead of text
-      wherever possible (toolbar, page bar, status bar)
-- [ ] Phone layout: the toolbar and colour palette take up too much of a phone screen.
-      Use icons and show fewer options at a time (e.g. tap the current colour to open the
-      palette)
-- [ ] Deleting with a small ✕ in a circle at the top-left corner (e.g. of a page tab),
-      which opens a confirmation popup before anything is deleted (in place of the
-      browser's own confirm box)
-- [ ] Text tool: click to place a text box, type, edit later
+## After that (rough order)
 - [ ] Quick shapes, including graph axes:
       - "+" axes: crossing at 0, with x and y spaced evenly
       - "L" axes: first-quadrant style
       - Shapes are easy to drag, anchor/centre and stretch with handles, like Figma
-- [ ] Selection and pan tools in the toolbar (select ties in with "Select and move" above;
-      Pan is already there as text and becomes an icon)
-- [ ] Keyboard shortcuts for every tool, plus mouse modifiers for fluid navigation and
-      writing, e.g. hold Alt and drag to pan, Ctrl + scroll to zoom
-      (Space-drag pan and Ctrl + scroll zoom already work)
+- [ ] Text tool: click to place a text box, type, edit later
+- [ ] Deleting with a small ✕ in a circle at the top-left corner (e.g. of a page tab),
+      which opens a confirmation popup before anything is deleted (in place of the
+      browser's own confirm box)
 
 ## UI/UX polish (direction not decided yet)
 - [ ] Make the overall UI/UX better. Still open what this means; start by using the app
@@ -41,7 +55,10 @@
       feedback when things happen (saved, synced, undo), first-time use
 
 ## Later
-- [ ] PDF / image backgrounds to write on (worksheets)
+- [ ] Phone layout: the toolbar and colour palette take up too much of a phone screen
+      (the toolbar wraps into 5 rows). Use icons and show fewer options at a time (e.g. tap
+      the current colour to open the palette). Phones are unlikely in lessons
+- [ ] PDF backgrounds to write on (worksheets)
 - [ ] Highlighter
 - [ ] Graph paper background
 
@@ -54,3 +71,5 @@
 - [x] v0.3: share with a student over the internet (Cloudflare Tunnel, SPEC R29–R34): "Copy student
       link" button, board list for the tutor only, malformed requests and oversized messages no
       longer crash the server, ink drawn while offline is kept and sent on reconnect
+- [x] Phone: the page tabs were hidden (the page bar shrank to 35 px and showed as a blank
+      white box). On narrow screens it now sits above the status bar (2026-11-05)

@@ -1,6 +1,6 @@
 # Tutor Board — Specification
 
-**Status:** Draft v0.3 · **Last updated:** 2026-11-03
+**Status:** Draft v0.3 · **Last updated:** 2026-11-05
 
 ## 1. Purpose
 
@@ -14,7 +14,8 @@ makes handwriting (letters, numbers, small loops) come out illegible. Its main p
 - **Tutor (primary):** writes with a Wacom Intuos BT S over USB on Windows.
 - **Student (secondary):** joins a lesson's board from their own device, using a link from
   the tutor, and can draw, erase and add pages, the same as the tutor. They see only that
-  board.
+  board. Students most likely use a laptop or an iPad (possibly without a stylus); a
+  phone is unlikely.
 
 ## 3. Principles
 
@@ -96,6 +97,8 @@ numbers appear out of order.
 - **R26.** Wacom on Windows in Chrome or Edge: fully supported.
 - **R27.** iPad with Apple Pencil, and Surface pen: palm rejection (a hand resting on the
   screen never blocks the pen or moves the page), two-finger pan, pinch zoom.
+- **R35.** On a touch screen with no stylus (such as an iPad without a Pencil), one finger
+  uses the current tool (draws, erases), and two fingers pan and pinch zoom.
 
 ### 4.9 Sharing and access
 - **R28.** Works on the tutor's own computer, and on the same Wi-Fi via the computer's
@@ -139,17 +142,25 @@ Problems found in testing on 2026-11-03, and where they stand:
 
 Tested on 2026-11-04 with a real Cloudflare tunnel, including a student link opened on an
 iPhone: the board loaded and synced live. That test also found that a finger can only pan
-on a phone (no pen or eraser), and that the toolbar is too big for a phone screen (see
-BACKLOG.md).
+on a touch screen (no pen or eraser, R35), and that the toolbar is too big for a phone
+screen (see BACKLOG.md). The page tabs were also hidden on a phone; fixed on 2026-11-05.
 
 Still to do, in this order (see BACKLOG.md):
-1. **Tablet support (R27).** Students join from their own devices.
-2. **Select and move (R20–R21).**
-3. **Smooth and animated zoom with buttons (R15–R16).** Ctrl+scroll and pinch zoom already
-   work, so this is the least urgent.
+1. **iPad support (R27, R35).** Students join from their own devices, often an iPad.
+2. **Icon toolbar.** On an iPad the toolbar wraps into 3 rows; icons also leave room for
+   new tools.
+3. **A student can't wipe the tutor's work** (open question 1).
+4. **Use it in a real lesson**, then re-sort the backlog from what that shows.
+5. **Select and move (R20–R21).**
+6. **Paste an image onto a page** (worksheets, exam questions).
+7. **Smooth and animated zoom with buttons (R15–R16), and shortcuts.** Ctrl+scroll and
+   trackpad pinch already work, so this is the least urgent.
 
 ## 7. Open questions
-None right now.
+1. **Deleting a page and clearing a page.** Today anyone can delete a page, which can't be
+   undone, and a Clear can only be undone in the tab that pressed it. Should deleting
+   pages be tutor-only, or open to students but undoable by the tutor? Should Clear ask
+   first?
 
 ## 8. Decisions
 - **2026-11-03 · Access to a board:** the board's link is the only key, with no password.
@@ -175,3 +186,6 @@ None right now.
 - **2026-11-03 · Message size cap:** 2 MB per WebSocket message (was the library default
   of 100 MB). A minute of non-stop writing is about 350 KB, and the app splits strokes
   over 10,000 samples into several messages (R34).
+- **2026-11-05 · Phones:** students are unlikely to join a lesson from a phone, so
+  phone-only problems are low priority and are fixed only when the fix is quick. The iPad
+  is the student tablet that matters (R27, R35).
