@@ -4,9 +4,52 @@ Students are most likely to join from a laptop or an iPad, not a phone. Phone-on
 problems are low priority and only worth fixing when the fix is quick.
 
 ## Bugs
-(none open)
+Found in the first test on a real iPad, 2026-11-05 (`ipad` branch):
+- [ ] Apple Pencil ink lands about 0.5–1 cm below the Pencil tip. A finger probably has
+      the same offset, hidden under the fingertip. Likely cause: the canvases are sized
+      with CSS `100vw`/`100vh` (style.css), and in iPad Safari `100vh` can be taller than
+      the visible window, which stretches the drawing downwards. Fix: size the canvases
+      from `innerWidth`/`innerHeight` in `resize()` (app.js), and confirm with the debug
+      mode below
+- [ ] The Pencil didn't draw while a palm was on the screen, which is exactly what SPEC
+      R27 promises. Maybe the palm was touching outside the browser window. One guess to
+      check: Safari may report the Pencil as a finger while another touch is down, which
+      would make palm + Pencil a two-finger pinch. Needs the debug mode
+- [ ] Shifting the palm panned the page by accident. Probably the hand touching in two
+      places, which counts as a two-finger pinch. Possible safeguards: ignore new touches
+      for about 1 s after the Pencil lifts; ignore large contacts, if the iPad reports
+      contact size
+- [ ] The student link says "This board link doesn't work", even when opened fresh in a
+      new tab, although Copy student link gives the same link and the board opens on the
+      computer. Every board file on disk reads fine and the server logs nothing, so the
+      cause is unknown. Fix: log the requested ID and the reason for every refused board;
+      only call a board missing when its file really doesn't exist (retry a read error);
+      show the ID in the notice. On the iPad, compare the address Safari opens with the
+      copied link
 
 ## Next (in order)
+- [ ] iPad / Surface (SPEC R27, R35). Built and tested with simulated touch and pen input
+      on 2026-11-05; the first real-iPad test found the bugs above. Order: debug mode,
+      then the offset fix, then the palm problems, then the hint. Done only after it
+      passes a real-iPad test with and without a Pencil. Rules:
+      - Two fingers always pan and pinch zoom; a third finger is ignored
+      - No pen used yet on this device: one finger uses the current tool. If a second
+        finger lands mid-stroke, the stroke is cancelled (it was a pinch, not writing)
+      - Once a pen has been used (remembered on the device): one finger does nothing
+        (it's probably a palm), unless the Pan tool is selected
+      - The pen always wins: it cancels any finger gesture in progress, and fingers are
+        ignored while the pen is down
+      - After a pinch, or with fingers down while the pen was down, nothing new starts
+        until all fingers are up
+
+      Still to build:
+      - Touch debug mode (`?debug` on a board link): a crosshair where the browser
+        reports each pointer; each pointer's type, id, contact size and pressure; the
+        last few down/up/cancel events; the window height compared with `100vh` and
+        `visualViewport`
+      - Hint when one finger drags in pen mode: "Use two fingers to move the page (or
+        pick Pan)". Shown rarely, and only for a small contact that moves far, so a
+        drifting palm doesn't trigger it
 - [ ] Icon toolbar instead of words (with hover tooltips), including Select and Pan tools.
       On an iPad in portrait the toolbar wraps into 3 rows across the top of the screen,
       and on a desktop it wraps in any window narrower than about 1760 px. Two causes: its
@@ -60,15 +103,5 @@ problems are low priority and only worth fixing when the fix is quick.
 - [x] Phone: the page tabs were hidden (the page bar shrank to 35 px and showed as a blank
       white box). On narrow screens it now sits above the status bar (2026-11-05)
 - [x] Bug: on a touch screen with no stylus, a finger could only pan, so a student with no
-      stylus couldn't write. Found on an iPhone, 2026-11-04; fixed 2026-11-05
-- [x] iPad / Surface (SPEC R27, R35, 2026-11-05). Tested with simulated touch and pen
-      input; still to try on a real iPad. Rules:
-      - Two fingers always pan and pinch zoom; a third finger is ignored
-      - No pen used yet on this device: one finger uses the current tool. If a second
-        finger lands mid-stroke, the stroke is cancelled (it was a pinch, not writing)
-      - Once a pen has been used (remembered on the device): one finger does nothing
-        (it's probably a palm), unless the Pan tool is selected
-      - The pen always wins: it cancels any finger gesture in progress, and fingers are
-        ignored while the pen is down
-      - After a pinch, or with fingers down while the pen was down, nothing new starts
-        until all fingers are up
+      stylus couldn't write. Found on an iPhone, 2026-11-04; fixed 2026-11-05, and finger
+      drawing worked on a real iPad

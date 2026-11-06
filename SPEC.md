@@ -131,10 +131,17 @@ v0.3 is done: R1–R14, R17–R19 and R22–R26, plus sharing over the internet 
 A student can join a board from anywhere with a link, sees only that board, and ink
 drawn while offline is kept and sent on reconnect.
 
-Touch screens (R27, R35) are done as of 2026-11-05: a finger draws and erases when no pen
-has been used on the device, two fingers pan and pinch zoom, and once a pen has been used
-a resting hand is ignored (see Decisions). Checked with simulated touch and pen input in
-Chrome; still to try on a real iPad, with and without a Pencil.
+Touch screens (R27, R35) were built on 2026-11-05 on the `ipad` branch: a finger draws
+and erases when no pen has been used on the device, two fingers pan and pinch zoom, and
+once a pen has been used a resting hand should be ignored (see Decisions). They passed
+tests with simulated touch and pen input in Chrome. The first test on a real iPad, the
+same day, found that the layout is good and finger drawing works, but also found these
+problems (details in BACKLOG.md):
+- Apple Pencil ink lands about 0.5–1 cm below the tip.
+- The Pencil didn't draw while a palm was on the screen (R27).
+- Shifting the palm panned the page by accident (R27).
+- The student link said "This board link doesn't work", even opened fresh, although the
+  board opens fine on the computer.
 
 Problems found in testing on 2026-11-03, and where they stand:
 - Fixed in v0.3: anyone who could reach the server could list every board (R33).
@@ -142,8 +149,8 @@ Problems found in testing on 2026-11-03, and where they stand:
   malformed WebSocket frame (R34).
 - Fixed in v0.3: ink drawn while the connection was down disappeared on reconnect and was
   never saved (R30).
-- Fixed on 2026-11-05: on a touch screen, a hand resting on the screen stopped the pen
-  drawing until it was lifted (R27).
+- Open: on a touch screen, a hand resting on the screen stops the pen drawing until it's
+  lifted (R27). A fix was built on 2026-11-05, but a real iPad still showed it.
 
 Tested on 2026-11-04 with a real Cloudflare tunnel, including a student link opened on an
 iPhone: the board loaded and synced live. That test also found that a finger could only
@@ -152,13 +159,15 @@ is too big for a phone screen (see BACKLOG.md). The page tabs were also hidden o
 fixed on 2026-11-05.
 
 Still to do, in this order (see BACKLOG.md):
-1. **Icon toolbar.** On an iPad the toolbar wraps into 3 rows; icons also leave room for
+1. **iPad support (R27, R35).** Fix what the real-iPad test found, starting with a touch
+   debug mode, then pass a real-iPad test with and without a Pencil.
+2. **Icon toolbar.** On an iPad the toolbar wraps into 3 rows; icons also leave room for
    new tools.
-2. **A student can't wipe the tutor's work** (open question 1).
-3. **Use it in a real lesson**, then re-sort the backlog from what that shows.
-4. **Select and move (R20–R21).**
-5. **Paste an image onto a page** (worksheets, exam questions).
-6. **Smooth and animated zoom with buttons (R15–R16), and shortcuts.** Ctrl+scroll and
+3. **A student can't wipe the tutor's work** (open question 1).
+4. **Use it in a real lesson**, then re-sort the backlog from what that shows.
+5. **Select and move (R20–R21).**
+6. **Paste an image onto a page** (worksheets, exam questions).
+7. **Smooth and animated zoom with buttons (R15–R16), and shortcuts.** Ctrl+scroll and
    trackpad pinch already work, so this is the least urgent.
 
 ## 7. Open questions
@@ -200,4 +209,6 @@ Still to do, in this order (see BACKLOG.md):
   nothing (it's probably a palm) unless the Pan tool is selected. The pen always wins: it
   cancels a finger gesture and fingers are ignored while it's down. A finger stroke that
   turns into a pinch, is interrupted by the pen, or is cancelled by iOS is deleted for
-  everyone and left out of undo. A cancelled pen stroke is kept.
+  everyone and left out of undo. A cancelled pen stroke is kept. Once a pen has been
+  used, one finger dragging shows a hint ("use two fingers to move the page") rather than
+  panning, to keep palm rejection safe.
