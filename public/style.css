@@ -25,11 +25,11 @@ body.board {
   -webkit-touch-callout: none; /* no iOS menu on a long press */
 }
 
+/* app.js sizes the canvases to the window (not 100vh, see resize()). */
 canvas {
   position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
+  top: 0;
+  left: 0;
   display: block;
 }
 
@@ -284,6 +284,43 @@ button.primary:disabled { opacity: 0.6; cursor: default; }
 @media (max-width: 520px) {
   #newBoard { grid-template-columns: 1fr; }
 }
+
+/* Debug mode (?debug on a board link, see app.js). Never blocks input. */
+#debug {
+  position: fixed;
+  left: 12px;
+  bottom: 110px;
+  z-index: 3;
+  max-width: calc(100vw - 24px);
+  margin: 0;
+  padding: 8px 10px;
+  font: 11px/1.35 ui-monospace, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--bar-border);
+  border-radius: 8px;
+  pointer-events: none;
+}
+.debug-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  border: 2px solid;
+  border-radius: 50%;
+  pointer-events: none;
+}
+/* A cross at the exact point the browser reports. */
+.debug-ring::before,
+.debug-ring::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: currentColor;
+}
+.debug-ring::before { width: 40px; height: 1px; margin: 0 0 0 -20px; }
+.debug-ring::after { width: 1px; height: 40px; margin: -20px 0 0 0; }
 
 /* Too narrow to share the bottom row with the status bar: sit above it. */
 @media (max-width: 540px) {

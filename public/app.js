@@ -294,6 +294,10 @@ function resize() {
   for (const c of [ink, overlay]) {
     c.width = Math.round(innerWidth * dpr);
     c.height = Math.round(innerHeight * dpr);
+    // Exactly the window's size. CSS 100vh can be taller than the visible
+    // window in iPad Safari, which stretched the drawing below the pen.
+    c.style.width = innerWidth + 'px';
+    c.style.height = innerHeight + 'px';
   }
   redraw();
 }
@@ -992,3 +996,94 @@ function toast(msg, ms = 2200) {
 window.addEventListener('resize', resize);
 buildToolbar();
 resize();
+
+// ---------- debug mode ----------
+// Add ?debug to a board link to see what the browser reports for each finger
+// and pen: a ring where it says the pointer is (as big as the contact, if the
+// device reports that), the latest events with what the app did, and the
+// window sizes. For checking touch input on a real iPad. Nothing here runs
+// without ?debug.
+if (new URLSearchParams(location.search).has('debug')) startDebug();
+
+function startDebug() {
+  const panel = document.createElement('pre');
+  panel.id = 'debug';
+  document.body.appendChild(panel);
+  // Measures what CSS 100vh means on this device.
+  const vhProbe = document.createElement('div');
+  vhProbe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:100vh;visibility:hidden';
+  document.body.appendChild(vhProbe);
+
+  const pointers = new Map(); // pointerId -> latest event
+  const rings = new Map(); // pointerId -> ring element
+  const log = []; // newest first
+  let queued = false;
+
+  const n = (v) => Math.round(v);
+  const describe = (e) =>
+    `${e.pointerType} #${e.pointerId} at ${n(e.clientX)},${n(e.clientY)} size ${n(e.width)}x${n(e.height)} pressure ${e.pressure.toFixed(2)}`;
+  const target = (e) => (e.target === overlay ? 'canvas' : e.target.id || e.target.tagName?.toLowerCase() || '?');
+  const state = () =>
+    `gesture ${act ? act.kind + (act.touch ? ' (finger)' : '') : 'none'} · pinch ${pinch ? 'yes' : 'no'}` +
+    ` · fingers ${touches.size}${touchBlocked ? ' (ignored until all up)' : ''}`;
+
+  function onEvent(e) {
+    const gone = e.type === 'pointerup' || e.type === 'pointercancel' || (e.type === 'pointerout' && !e.relatedTarget);
+    if (gone) {
+      pointers.delete(e.pointerId);
+      rings.get(e.pointerId)?.remove();
+      rings.delete(e.pointerId);
+    } else if (e.type !== 'pointerout') {
+      pointers.set(e.pointerId, e);
+    }
+    if (e.type === 'pointerdown' || e.type === 'pointerup' || e.type === 'pointercancel') {
+      // Listening on window after the canvas, so this is the state after the app handled it.
+      log.unshift(`${e.type.slice(7)} ${describe(e)} on ${target(e)} → ${state()}`);
+      log.length = Math.min(log.length, 12);
+    }
+    queueRender();
+  }
+  for (const t of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'pointerout']) {
+    window.addEventListener(t, onEvent);
+  }
+  window.addEventListener('resize', queueRender);
+  window.visualViewport?.addEventListener('resize', queueRender);
+  window.visualViewport?.addEventListener('scroll', queueRender);
+
+  function queueRender() {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(render);
+  }
+
+  function render() {
+    queued = false;
+    const vv = window.visualViewport;
+    const c = ink.getBoundingClientRect();
+    panel.textContent = [
+      `window ${innerWidth}x${innerHeight} · CSS 100vh = ${vhProbe.offsetHeight}px · dpr ${dpr}`,
+      `canvas ${n(c.width)}x${n(c.height)} at ${n(c.left)},${n(c.top)}`,
+      vv ? `visual viewport ${n(vv.width)}x${n(vv.height)} at ${n(vv.offsetLeft)},${n(vv.offsetTop)} · scale ${vv.scale.toFixed(2)}` : 'no visualViewport',
+      `pen used on this device: ${penUsed ? 'yes' : 'no'} · tool ${tool.mode} · board ${boardId}`,
+      state(),
+      '',
+      ...[...pointers.values()].map(describe),
+      '',
+      ...log,
+    ].join('\n');
+    for (const [id, e] of pointers) {
+      let ring = rings.get(id);
+      if (!ring) {
+        ring = document.createElement('div');
+        ring.className = 'debug-ring';
+        ring.style.color = e.pointerType === 'pen' ? '#d62d2d' : e.pointerType === 'touch' ? '#1f5fd1' : '#6b7280';
+        document.body.appendChild(ring);
+        rings.set(id, ring);
+      }
+      const size = Math.max(16, e.width || 0, e.height || 0);
+      ring.style.width = ring.style.height = size + 'px';
+      ring.style.transform = `translate(${e.clientX - size / 2}px, ${e.clientY - size / 2}px)`;
+    }
+  }
+  queueRender();
+}
