@@ -41,6 +41,15 @@ Found in the second iPad test, 2026-11-06 (details and how to check in TEST-LOG.
       higher pressure, so the dot is about 1 px across. Fix idea: keep the highest
       pressure seen for a point that doesn't move, and give dots a minimum size
 
+Found in a test on an Android phone, 2026-11-06 (details in TEST-LOG.md):
+- [ ] On a Google Pixel in Brave, the board turned black at the first finger touch, and
+      nothing drawn showed on the phone after that, although the strokes reached the
+      tutor. Brave on a Mac was fine. Likely cause: the low-latency (`desynchronized`)
+      canvases, which Chromium on Android can send straight to the screen; a see-through
+      one mustn't have page elements on top, and the overlay does. Fix: no low-latency
+      canvas on Android or Chromebooks. Worth doing although phones are low priority:
+      it's quick, and Android tablets and Chromebooks are probably affected too
+
 ## Next (in order)
 - [ ] iPad / Surface (SPEC R27, R35). Built and tested with simulated touch and pen input
       on 2026-11-05; the first real-iPad test found the bugs above. Order: debug mode,
