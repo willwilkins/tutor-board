@@ -2,14 +2,25 @@ import { drawSegment, drawTail, drawStroke, widthAt, hitStroke, strokeBounds, ma
 import { connect } from './net.js';
 
 // ---------- canvases ----------
-// "ink" holds finished + in-progress strokes. It is opaque and "desynchronized",
-// which lets the browser show new ink without waiting for the next compositor frame.
+// "ink" holds finished + in-progress strokes. It is opaque and, where it's safe,
+// "desynchronized" (low latency), which lets the browser show new ink without
+// waiting for the next compositor frame.
 // "overlay" sits on top for throwaway drawing: the stroke tip, predicted points
 // and the eraser circle. It also receives all pointer input.
+// Low latency is off on Android and Chromebooks: there Chromium can send the canvas
+// straight to the screen, and on a Pixel phone the board went black at the first
+// touch (TEST-LOG.md, 2026-11-06). ?lowlatency=on or =off overrides this, for testing.
 const ink = document.getElementById('ink');
 const overlay = document.getElementById('overlay');
-const ictx = ink.getContext('2d', { alpha: false, desynchronized: true });
-const octx = overlay.getContext('2d', { desynchronized: true });
+const lowLatencySetting = new URLSearchParams(location.search).get('lowlatency');
+const lowLatency = lowLatencySetting
+  ? lowLatencySetting === 'on'
+  : !/Android|CrOS/.test(navigator.userAgent);
+const ictx = ink.getContext('2d', { alpha: false, desynchronized: lowLatency });
+const octx = overlay.getContext('2d', { desynchronized: lowLatency });
+// A browser that drops the canvas's memory (Android can) gives back a blank
+// canvas: draw the board again.
+ink.addEventListener('contextrestored', () => redraw());
 let dpr = window.devicePixelRatio || 1;
 
 // ---------- state ----------

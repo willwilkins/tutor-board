@@ -40,6 +40,8 @@ numbers appear out of order.
 - **R2.** Line width follows pen pressure. A mouse draws at a fixed width.
 - **R3.** Ink appears in the same frame as the pen sample that produced it. The app uses a
   low-latency canvas, and the browser's predicted points fill in the gap at the pen tip.
+  Not on Android or Chromebooks, where the low-latency canvas broke the display (see the
+  2026-11-06 decision below).
 - **R4.** Strokes are smooth curves through the actual samples and keep small direction
   changes and loops.
 - **R5.** The status bar shows the last stroke's sample rate ("pen ___ Hz").
@@ -212,3 +214,9 @@ Still to do, in this order (see BACKLOG.md):
   everyone and left out of undo. A cancelled pen stroke is kept. Once a pen has been
   used, one finger dragging shows a hint ("use two fingers to move the page") rather than
   panning, to keep palm rejection safe.
+- **2026-11-06 · No low-latency canvas on Android or Chromebooks (R3):** on a Google
+  Pixel in Brave, the board turned black at the first touch and showed no ink
+  (TEST-LOG.md). There, Chromium can send a low-latency canvas straight to the screen,
+  which breaks a see-through canvas with page elements on top. A normal canvas costs
+  about one frame of delay on those devices. Windows, Mac and iPad are unchanged.
+  `?lowlatency=on` or `=off` on a board link overrides this, for testing.
