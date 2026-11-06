@@ -8,9 +8,9 @@ Found in the first test on a real iPad, 2026-11-05 (`ipad` branch):
 - [ ] Apple Pencil ink lands about 0.5–1 cm below the Pencil tip. A finger probably has
       the same offset, hidden under the fingertip. Likely cause: the canvases are sized
       with CSS `100vw`/`100vh` (style.css), and in iPad Safari `100vh` can be taller than
-      the visible window, which stretches the drawing downwards. Fix: size the canvases
-      from `innerWidth`/`innerHeight` in `resize()` (app.js), and confirm with the debug
-      mode below
+      the visible window, which stretches the drawing downwards. Fix built 2026-11-06:
+      the canvases are now sized from `innerWidth`/`innerHeight` in `resize()` (app.js).
+      To confirm on the iPad with the debug mode
 - [ ] The Pencil didn't draw while a palm was on the screen, which is exactly what SPEC
       R27 promises. Maybe the palm was touching outside the browser window. One guess to
       check: Safari may report the Pencil as a finger while another touch is down, which
@@ -27,6 +27,20 @@ Found in the first test on a real iPad, 2026-11-05 (`ipad` branch):
       show the ID in the notice. On the iPad, compare the address Safari opens with the
       copied link
 
+Found in the second iPad test, 2026-11-06 (details and how to check in TEST-LOG.md):
+- [ ] All input (finger and Pencil) suddenly landed about 50 mm left of and 15 mm below
+      the finger, after touching the toolbar. Only inside the Safari window (not full
+      screen): the Pencil was accurate over other apps. Leaving Safari and coming back
+      fixed it, and it's said to happen in other iPad apps too. Most likely Safari's
+      window moved or resized and Safari kept the old position for touches. Could also
+      be the page zooming or scrolling, since only the canvas blocks that. Try to
+      reproduce by moving or resizing the Safari window with the debug mode on
+- [ ] The dot of an exclamation mark is often missed when written lightly. Likely cause:
+      a dot keeps the pressure from the moment the pen touched down (near zero for a
+      quick light tap), and later samples at the same spot are skipped along with their
+      higher pressure, so the dot is about 1 px across. Fix idea: keep the highest
+      pressure seen for a point that doesn't move, and give dots a minimum size
+
 ## Next (in order)
 - [ ] iPad / Surface (SPEC R27, R35). Built and tested with simulated touch and pen input
       on 2026-11-05; the first real-iPad test found the bugs above. Order: debug mode,
@@ -42,11 +56,12 @@ Found in the first test on a real iPad, 2026-11-05 (`ipad` branch):
       - After a pinch, or with fingers down while the pen was down, nothing new starts
         until all fingers are up
 
+      - [x] Touch debug mode (`?debug` on a board link), built 2026-11-06: a ring and
+        cross where the browser reports each pointer, sized like the contact; each
+        pointer's type, id, contact size and pressure; the last down/up/cancel events
+        with what the app did; the window, canvas, `100vh` and `visualViewport` sizes
+
       Still to build:
-      - Touch debug mode (`?debug` on a board link): a crosshair where the browser
-        reports each pointer; each pointer's type, id, contact size and pressure; the
-        last few down/up/cancel events; the window height compared with `100vh` and
-        `visualViewport`
       - Hint when one finger drags in pen mode: "Use two fingers to move the page (or
         pick Pan)". Shown rarely, and only for a small contact that moves far, so a
         drifting palm doesn't trigger it
