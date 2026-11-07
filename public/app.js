@@ -1,4 +1,4 @@
-import { drawSegment, drawTail, drawStroke, widthAt, hitStroke, strokeBounds, maxHalfWidth, pageBounds } from './render.js';
+import { drawSegment, drawTail, drawStroke, widthAt, dotWidth, hitStroke, strokeBounds, maxHalfWidth, pageBounds } from './render.js';
 import { connect } from './net.js';
 
 // ---------- canvases ----------
@@ -106,6 +106,14 @@ function handleMessage(m) {
         const n1 = s.points.length / 3;
         for (let k = Math.max(1, n0); k < n1; k++) drawSegment(ictx, s, k);
       }
+      break;
+    }
+    case 'stroke:pressure': {
+      // The pen pressed harder on a point it had already sent. It arrives
+      // before the ink that uses it is drawn here, so there's nothing to redraw.
+      const s = strokes.get(m.id);
+      const i = m.at + 2;
+      if (s && i < s.points.length && m.pressure > s.points[i]) s.points[i] = m.pressure;
       break;
     }
     case 'stroke:end': {
@@ -371,7 +379,8 @@ function drawLiveTip(predicted) {
   octx.strokeStyle = s.color;
   octx.lineCap = 'round';
   octx.lineJoin = 'round';
-  octx.lineWidth = widthAt(s.size, p[i + 2]);
+  // A single point shows as the dot it will become (see dotWidth).
+  octx.lineWidth = n === 1 ? dotWidth(s.size, p[2]) : widthAt(s.size, p[i + 2]);
   octx.beginPath();
   if (n >= 2) octx.moveTo((p[i - 3] + p[i]) / 2, (p[i - 2] + p[i + 1]) / 2);
   else octx.moveTo(p[0], p[1]);
@@ -393,7 +402,8 @@ function drawEraserCursor(cx, cy) {
 // ---------- input ----------
 // act = the current gesture: { kind: 'draw' | 'erase' | 'pan', pointerId, touch, ... }
 let act = null;
-// live = the stroke being drawn and how many of its numbers were already sent.
+// live = the stroke being drawn, how many of its numbers were already sent,
+// and whether the last point sent has since got a higher pressure.
 let live = null;
 let spaceDown = false;
 let lastRate = null;
@@ -529,7 +539,7 @@ function startGesture(e, kind) {
   if (kind === 'draw') {
     const s = { id: newId(), pageId, color: tool.color, size: tool.size, points: [] };
     addStrokeLocal(s);
-    live = { stroke: s, sent: 0 };
+    live = { stroke: s, sent: 0, raised: false };
     act.samples = 0;
     act.t0 = e.timeStamp;
     act.t1 = e.timeStamp;
@@ -559,7 +569,17 @@ function addPoint(e) {
     const dx = x - p[p.length - 3];
     const dy = y - p[p.length - 2];
     const min = 0.2 / v.z; // skip only exact repeats (< 0.2 screen px)
-    if (dx * dx + dy * dy < min * min) return;
+    if (dx * dx + dy * dy < min * min) {
+      // The pen is still on the same spot. Keep the highest pressure seen
+      // there: a light tap starts near 0 and only then presses harder.
+      const pr = round(pressureOf(e), 1000);
+      if (pr > p[p.length - 1]) {
+        p[p.length - 1] = pr;
+        // Already sent: flush() sends the new pressure too.
+        if (p.length <= live.sent) live.raised = true;
+      }
+      return;
+    }
   }
   p.push(round(x, 100), round(y, 100), round(pressureOf(e), 1000));
   if (n >= 1) drawSegment(ictx, s, n);
@@ -688,8 +708,16 @@ function queueFlush() {
 function flush() {
   flushQueued = false;
   if (!live) return;
-  sendPoints(live.stroke, live.sent);
-  live.sent = live.stroke.points.length;
+  const s = live.stroke;
+  if (live.raised) {
+    // The last point sent got a higher pressure (see addPoint). Send that
+    // first, so others have it before they draw the ink that uses it.
+    live.raised = false;
+    const at = live.sent - 3;
+    net.send({ type: 'stroke:pressure', id: s.id, pageId: s.pageId, at, pressure: s.points[at + 2] });
+  }
+  sendPoints(s, live.sent);
+  live.sent = s.points.length;
 }
 
 // Sends a stroke's points from index `from` on. `at` tells the server where

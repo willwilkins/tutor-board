@@ -222,6 +222,16 @@ function apply(ob, m) {
       for (const n of fresh) s.points.push(n);
       return { type: 'stroke:points', id: s.id, pageId: s.pageId, at: have, points: fresh };
     }
+    case 'stroke:pressure': {
+      // The pen pressed harder on a point already sent (a pen held still,
+      // such as a light dot). Pressure only goes up, so a repeat is harmless.
+      const s = strokeIndex.get(m.id);
+      const at = m.at;
+      if (!s || !Number.isSafeInteger(at) || at < 0 || at % 3 !== 0 || at + 2 >= s.points.length) return null;
+      if (typeof m.pressure !== 'number' || !Number.isFinite(m.pressure) || m.pressure <= s.points[at + 2]) return null;
+      s.points[at + 2] = m.pressure;
+      return { type: 'stroke:pressure', id: s.id, pageId: s.pageId, at, pressure: m.pressure };
+    }
     case 'stroke:end': {
       const s = strokeIndex.get(m.id);
       return s ? { type: 'stroke:end', id: s.id, pageId: s.pageId } : null;
