@@ -62,8 +62,10 @@ const net = connect({
     if (status === 'notfound') {
       const n = document.getElementById('notice');
       n.innerHTML = isTutor
-        ? '<p>This board doesn\'t exist. Check the link, or <a href="/">go to all boards</a>.</p>'
-        : '<p>This board link doesn\'t work. Ask your tutor for a new one.</p>';
+        ? '<div><p>This board doesn\'t exist. Check the link, or <a href="/">go to all boards</a>.</p><p class="id"></p></div>'
+        : '<div><p>This board link doesn\'t work. Ask your tutor for a new one.</p><p class="id"></p></div>';
+      // The board ID this page asked for, to compare with the link that was sent.
+      n.querySelector('.id').textContent = `Board ID: ${boardId || '(none)'}`;
       n.hidden = false;
     }
   },
