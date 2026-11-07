@@ -432,6 +432,34 @@ function notePen(e) {
     localStorage.setItem(PEN_KEY, '1');
   } catch { /* storage blocked: remember for this tab only */ }
 }
+// In pen mode one finger does nothing, which can be confusing, so a finger
+// that drags far gets a hint (not for a resting palm, which hardly moves).
+// Shown rarely, so it never gets in the way of writing.
+const HINT_DISTANCE = 70; // CSS px the finger has to move
+const HINT_GAP = 60_000; // ms between hints
+const HINT_MAX = 3; // hints per page load
+const BIG_CONTACT = 30; // px: a contact this big is probably a palm
+let hintFinger = null; // { id, x, y }: where the ignored finger landed
+let hintsShown = 0;
+let lastHint = -Infinity;
+
+function checkHint(e) {
+  // Skip it while the pen is down, or for a big contact (if the device
+  // reports contact size; most report 1 or 0 when they don't).
+  if ((act && !act.touch) || Math.max(e.width || 0, e.height || 0) > BIG_CONTACT) {
+    hintFinger = null;
+    return;
+  }
+  const dx = e.clientX - hintFinger.x, dy = e.clientY - hintFinger.y;
+  if (dx * dx + dy * dy < HINT_DISTANCE * HINT_DISTANCE) return;
+  hintFinger = null;
+  const now = performance.now();
+  if (hintsShown >= HINT_MAX || now - lastHint < HINT_GAP) return;
+  hintsShown++;
+  lastHint = now;
+  toast('Use two fingers to move the page (or pick Pan)', 3500);
+}
+
 // pointerover also fires when a pen starts hovering, so a Pencil counts even
 // before it touches. (Not pointermove, to keep work out of the drawing path.)
 window.addEventListener('pointerover', notePen, true);
@@ -465,6 +493,7 @@ overlay.addEventListener('pointerdown', (e) => {
   }
   // Fingers still on the screen (a resting hand) stay ignored until all are up.
   pinch = null;
+  hintFinger = null;
   if (touches.size) touchBlocked = true;
 
   let kind;
@@ -482,6 +511,7 @@ function touchDown(e) {
     touches.clear();
     pinch = null;
     touchBlocked = false;
+    hintFinger = null;
   }
   touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
   capture(e);
@@ -497,12 +527,14 @@ function touchDown(e) {
   if (touches.size !== 1) return;
   if (tool.mode === 'hand' || spaceDown) startGesture(e, 'pan');
   else if (!penUsed) startGesture(e, tool.mode === 'eraser' ? 'erase' : 'draw');
-  // Otherwise it's probably a palm, so it does nothing.
+  // Otherwise it's probably a palm, so it does nothing (but see checkHint).
+  else if (hintsShown < HINT_MAX) hintFinger = { id: e.pointerId, x: e.clientX, y: e.clientY };
 }
 
 function startPinch() {
   // A finger stroke was the start of a pinch, not writing: cancel it.
   if (act) finishGesture(true);
+  hintFinger = null;
   const [a, b] = touches.values();
   pinch = { ids: [...touches.keys()], x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) };
 }
@@ -525,6 +557,7 @@ function movePinch() {
 
 function touchUp(e) {
   if (!touches.delete(e.pointerId)) return;
+  if (hintFinger?.id === e.pointerId) hintFinger = null;
   if (pinch && pinch.ids.includes(e.pointerId)) {
     pinch = null;
     touchBlocked = true; // the finger left behind doesn't start drawing
@@ -648,6 +681,7 @@ function touchMove(e) {
     if (pinch.ids.includes(e.pointerId)) movePinch();
     return false;
   }
+  if (hintFinger?.id === e.pointerId) checkHint(e);
   return act?.pointerId === e.pointerId;
 }
 
