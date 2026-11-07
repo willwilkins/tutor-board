@@ -44,10 +44,11 @@ Found in the second iPad test, 2026-11-06 (details and how to check in TEST-LOG.
       higher pressure, so the dot is about 1 px across. Fix built 2026-11-07 (branch
       `claude/gifted-moore-d1b94f`): a point the pen stays on keeps the highest pressure
       seen (sent on to others with a small `stroke:pressure` message), and a dot is never
-      smaller than the pen's normal width. Tested with simulated Pencil input. To
-      confirm on the iPad: write "!" lightly a few times. Also check on the Wacom that
-      stroke starts don't look heavier (a pen held still before moving now keeps its
-      highest pressure there too)
+      smaller than the pen's normal width. Tested on 2026-11-07: Wacom ink looks maybe a
+      little thicker, which the tutor is happy with; on the iPad a light dot still
+      doesn't show (a slightly harder one does). Low priority now: users work it out
+      quickly. Probably the light tap never reaches the page; check with `?debug` (see
+      TEST-LOG.md, 2026-11-07)
 
 Found in a test on an Android phone, 2026-11-06 (details in TEST-LOG.md):
 - [ ] On a Google Pixel in Brave, the board turned black at the first finger touch, and
@@ -78,13 +79,14 @@ Found in a test on an Android phone, 2026-11-06 (details in TEST-LOG.md):
         pointer's type, id, contact size and pressure; the last down/up/cancel events
         with what the app did; the window, canvas, `100vh` and `visualViewport` sizes
 
-      - [x] Hint when one finger drags in pen mode, built 2026-11-07 (branch
+      - [ ] Hint when one finger drags in pen mode, built 2026-11-07 (branch
         `claude/gifted-moore-d1b94f`): "Use two fingers to move the page (or pick
         Pan)" when a single ignored finger moves about 70 px. At most once a minute and
         3 times per page load; not while the pen is down, and not for a contact over
         30 px (if the device reports contact size). Tested with simulated touch input.
-        To check on the iPad: does a resting or drifting palm ever show it? `?debug`
-        shows whether Safari reports contact size
+        On a real iPad (2026-11-07) it never showed. Likely cause: Safari reports a
+        fingertip as bigger than 30 px, so every finger counts as a palm. Check a
+        finger's size in `?debug`, then adjust the size check (see TEST-LOG.md)
 
       Still to build: the palm safeguards (see Bugs), after the next `?debug` iPad test
 - [ ] Icon toolbar instead of words (with hover tooltips), including Select and Pan tools.
