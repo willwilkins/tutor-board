@@ -22,10 +22,13 @@ Found in the first test on a real iPad, 2026-11-05 (`ipad` branch):
 - [ ] The student link says "This board link doesn't work", even when opened fresh in a
       new tab, although Copy student link gives the same link and the board opens on the
       computer. Every board file on disk reads fine and the server logs nothing, so the
-      cause is unknown. Fix: log the requested ID and the reason for every refused board;
-      only call a board missing when its file really doesn't exist (retry a read error);
-      show the ID in the notice. On the iPad, compare the address Safari opens with the
-      copied link
+      cause is unknown. Diagnosis built 2026-11-07 (branch
+      `claude/gifted-moore-d1b94f`): the server console now logs every refused board
+      with the requested ID and the reason (bad ID, no file, or read error); only a
+      board that really doesn't exist gets "doesn't work", and a read error retries like
+      being offline; the notice shows the board ID the page asked for. Still unknown why
+      it happened. Next time: read the server console line, and compare the ID in the
+      notice with the copied link
 
 Found in the second iPad test, 2026-11-06 (details and how to check in TEST-LOG.md):
 - [ ] All input (finger and Pencil) suddenly landed about 50 mm left of and 15 mm below
@@ -38,8 +41,13 @@ Found in the second iPad test, 2026-11-06 (details and how to check in TEST-LOG.
 - [ ] The dot of an exclamation mark is often missed when written lightly. Likely cause:
       a dot keeps the pressure from the moment the pen touched down (near zero for a
       quick light tap), and later samples at the same spot are skipped along with their
-      higher pressure, so the dot is about 1 px across. Fix idea: keep the highest
-      pressure seen for a point that doesn't move, and give dots a minimum size
+      higher pressure, so the dot is about 1 px across. Fix built 2026-11-07 (branch
+      `claude/gifted-moore-d1b94f`): a point the pen stays on keeps the highest pressure
+      seen (sent on to others with a small `stroke:pressure` message), and a dot is never
+      smaller than the pen's normal width. Tested with simulated Pencil input. To
+      confirm on the iPad: write "!" lightly a few times. Also check on the Wacom that
+      stroke starts don't look heavier (a pen held still before moving now keeps its
+      highest pressure there too)
 
 Found in a test on an Android phone, 2026-11-06 (details in TEST-LOG.md):
 - [ ] On a Google Pixel in Brave, the board turned black at the first finger touch, and
@@ -70,10 +78,15 @@ Found in a test on an Android phone, 2026-11-06 (details in TEST-LOG.md):
         pointer's type, id, contact size and pressure; the last down/up/cancel events
         with what the app did; the window, canvas, `100vh` and `visualViewport` sizes
 
-      Still to build:
-      - Hint when one finger drags in pen mode: "Use two fingers to move the page (or
-        pick Pan)". Shown rarely, and only for a small contact that moves far, so a
-        drifting palm doesn't trigger it
+      - [x] Hint when one finger drags in pen mode, built 2026-11-07 (branch
+        `claude/gifted-moore-d1b94f`): "Use two fingers to move the page (or pick
+        Pan)" when a single ignored finger moves about 70 px. At most once a minute and
+        3 times per page load; not while the pen is down, and not for a contact over
+        30 px (if the device reports contact size). Tested with simulated touch input.
+        To check on the iPad: does a resting or drifting palm ever show it? `?debug`
+        shows whether Safari reports contact size
+
+      Still to build: the palm safeguards (see Bugs), after the next `?debug` iPad test
 - [ ] Icon toolbar instead of words (with hover tooltips), including Select and Pan tools.
       On an iPad in portrait the toolbar wraps into 3 rows across the top of the screen,
       and on a desktop it wraps in any window narrower than about 1760 px. Two causes: its

@@ -167,6 +167,14 @@ Possible fixes:
   instead of the first one.
 - Give a dot a minimum size, for example the pen's normal width.
 
+Fix built 2026-11-07 (branch `claude/gifted-moore-d1b94f`): both of the above. A point
+the pen stays on keeps the highest pressure seen there; if that point was already sent,
+a small `stroke:pressure` message brings others and the saved board up to date. A dot is
+never smaller than the pen's normal width. Tested in Chrome with simulated Pencil input
+(a dot landing at pressure 0.02 and pressing to 0.6; a light tap that never presses
+harder; going offline mid-dot): the dot looked the same in both tabs and on the server.
+Still to check on the iPad: write "!" lightly several times, with `?debug` on.
+
 ## 2026-11-05 · iPad, finger and Apple Pencil (first iPad test)
 
 Found four problems; they're logged as bugs in BACKLOG.md:
@@ -176,4 +184,13 @@ Found four problems; they're logged as bugs in BACKLOG.md:
 - The student link said "This board link doesn't work".
 
 Also found: one finger does nothing after the Pencil has been used, which was confusing.
-Decided: show a hint, not one-finger pan.
+Decided: show a hint, not one-finger pan. Built 2026-11-07 (see BACKLOG.md, Next).
+
+Fix notes for "This board link doesn't work" (2026-11-07, branch
+`claude/gifted-moore-d1b94f`): the cause is still unknown, but next time there will be
+something to go on. The server console logs every refused board with the requested ID
+and the reason (bad ID, no file, or read error). Only a board that really doesn't exist
+shows the "doesn't work" notice; a file that can't be read makes the page retry, like
+being offline. The notice shows the board ID the page asked for. How to check next time:
+- Read the server console for a line starting `Board "…" refused`.
+- Compare the ID in the notice with the link from Copy student link.
