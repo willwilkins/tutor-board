@@ -57,7 +57,9 @@ Found in a test on an Android phone, 2026-11-06 (details in TEST-LOG.md):
       canvases, which Chromium on Android can send straight to the screen; a see-through
       one mustn't have page elements on top, and the overlay does. Fix: no low-latency
       canvas on Android or Chromebooks. Worth doing although phones are low priority:
-      it's quick, and Android tablets and Chromebooks are probably affected too
+      it's quick, and Android tablets and Chromebooks are probably affected too. Fixed
+      on branch `android-black-canvas` and tested by the tutor on 2026-11-19: works. Not
+      merged into `ipad` or `main` yet
 
 ## Next (in order)
 - [ ] iPad / Surface (SPEC R27, R35). Built and tested with simulated touch and pen input

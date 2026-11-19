@@ -3,6 +3,16 @@
 Hands-on tests on real devices: what was tried, what went wrong, what we think the
 cause is, and how to check it next time. Bugs to fix also go in BACKLOG.md.
 
+## 2026-11-19 · Android black-screen fix (branch `android-black-canvas`)
+
+Setup: the fix from the 2026-11-06 Android test below. Low-latency canvases are off on
+Android and Chromebooks, `?lowlatency=on` or `=off` overrides that, and the board is
+redrawn if the browser restores a lost canvas.
+
+Result: the tutor tested the fix and reported that it worked completely. The black
+screen is fixed. No further details were recorded (device, browser, or whether
+`?lowlatency=on` brought the black screen back).
+
 ## 2026-11-07 · Laptop with Wacom, and iPad (branch `claude/gifted-moore-d1b94f`)
 
 Setup: the branch with the light-dot fix, the one-finger hint and the board-link
