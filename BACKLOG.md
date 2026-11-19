@@ -58,8 +58,10 @@ Found in a test on an Android phone, 2026-11-06 (details in TEST-LOG.md):
       one mustn't have page elements on top, and the overlay does. Fix: no low-latency
       canvas on Android or Chromebooks. Worth doing although phones are low priority:
       it's quick, and Android tablets and Chromebooks are probably affected too. Fixed
-      on branch `android-black-canvas` and tested by the tutor on 2026-11-19: works. Not
-      merged into `ipad` or `main` yet
+      on branch `android-black-canvas` and tested by the tutor on 2026-11-19: works,
+      also on a Samsung Galaxy Tab S with its pen. Not merged into `ipad` or `main` yet.
+      To check: does `?lowlatency=on` reduce the pen lag on that tablet without the
+      black screen?
 
 ## Next (in order)
 - [ ] iPad / Surface (SPEC R27, R35). Built and tested with simulated touch and pen input

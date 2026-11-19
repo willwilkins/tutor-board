@@ -13,6 +13,20 @@ Result: the tutor tested the fix and reported that it worked completely. The bla
 screen is fixed. No further details were recorded (device, browser, or whether
 `?lowlatency=on` brought the black screen back).
 
+Later the same day the tutor tested it on two of their own Android devices:
+
+- **Samsung Galaxy Tab S (older model), with its pen:** works. The pen reports
+  80–95 Hz, and the lag is noticeable, but this old tablet lags in every app. Not
+  checked yet: whether `?lowlatency=on` works on this tablet without the black screen,
+  and whether it feels less laggy. If it does, low latency could stay on for
+  devices where it works.
+- **Samsung Galaxy Ace 2 (2012 phone), built-in browser:** the board shows, roughly,
+  and the toolbar buttons respond (the tool sounds play), but nothing draws in pen
+  mode. Likely cause: the phone's old browser has no Pointer Events, which the app
+  uses for all drawing, while the buttons only need ordinary clicks. It probably also
+  lacks WebSockets, so live sync wouldn't work either. Not worth fixing: no student
+  will use a browser that old.
+
 ## 2026-11-07 · Laptop with Wacom, and iPad (branch `claude/gifted-moore-d1b94f`)
 
 Setup: the branch with the light-dot fix, the one-finger hint and the board-link
