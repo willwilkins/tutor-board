@@ -60,8 +60,8 @@ Found in a test on an Android phone, 2026-11-06 (details in TEST-LOG.md):
       it's quick, and Android tablets and Chromebooks are probably affected too. Fixed
       on branch `android-black-canvas` and tested by the tutor on 2026-11-19: works,
       also on a Samsung Galaxy Tab S with its pen. Not merged into `ipad` or `main` yet.
-      To check: does `?lowlatency=on` reduce the pen lag on that tablet without the
-      black screen?
+      `?lowlatency=on` on that tablet (2026-11-19): no black screen, but the same lag as
+      with it off (the tablet is slow), so low latency stays off on Android
 
 ## Next (in order)
 - [ ] iPad / Surface (SPEC R27, R35). Built and tested with simulated touch and pen input
