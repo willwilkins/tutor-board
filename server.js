@@ -116,10 +116,12 @@ function createBoard(title) {
 
 const openBoards = new Map(); // id -> { board, strokeIndex, clients, saveTimer, dirtySince }
 
+// Loads a board for live editing (the id must already match ID_RE). Throws if
+// the file can't be read; the error's code is 'ENOENT' if there's no such board.
 function openBoard(id) {
   if (openBoards.has(id)) return openBoards.get(id);
-  if (!ID_RE.test(id) || !fs.existsSync(boardFile(id))) return null;
   const board = JSON.parse(fs.readFileSync(boardFile(id), 'utf8'));
+  if (!Array.isArray(board.pages)) throw new Error('the file has no pages');
   const strokeIndex = new Map();
   for (const p of board.pages) for (const s of p.strokes) strokeIndex.set(s.id, s);
   const ob = { board, strokeIndex, clients: new Set(), saveTimer: null, dirtySince: null };
@@ -221,6 +223,16 @@ function apply(ob, m) {
       if (!fresh.length) return null;
       for (const n of fresh) s.points.push(n);
       return { type: 'stroke:points', id: s.id, pageId: s.pageId, at: have, points: fresh };
+    }
+    case 'stroke:pressure': {
+      // The pen pressed harder on a point already sent (a pen held still,
+      // such as a light dot). Pressure only goes up, so a repeat is harmless.
+      const s = strokeIndex.get(m.id);
+      const at = m.at;
+      if (!s || !Number.isSafeInteger(at) || at < 0 || at % 3 !== 0 || at + 2 >= s.points.length) return null;
+      if (typeof m.pressure !== 'number' || !Number.isFinite(m.pressure) || m.pressure <= s.points[at + 2]) return null;
+      s.points[at + 2] = m.pressure;
+      return { type: 'stroke:pressure', id: s.id, pageId: s.pageId, at, pressure: m.pressure };
     }
     case 'stroke:end': {
       const s = strokeIndex.get(m.id);
@@ -477,15 +489,14 @@ function onConnection(ws, params, tutor) {
   // connection. Without a listener the error would stop the server.
   ws.on('error', (err) => console.warn('Connection closed:', err.message));
 
-  let ob = null;
+  const id = params.get('board') || '';
+  if (!ID_RE.test(id)) return refuse(ws, id, tutor, 'bad ID', true);
+  let ob;
   try {
-    ob = openBoard(params.get('board') || '');
+    ob = openBoard(id);
   } catch (err) {
-    console.error('Could not open board:', err.message);
-  }
-  if (!ob) {
-    ws.close(4404, 'Board not found');
-    return;
+    if (err.code === 'ENOENT') return refuse(ws, id, tutor, 'no file', true);
+    return refuse(ws, id, tutor, `read error (${err.message})`, false);
   }
 
   const clientId = CLIENT_RE.test(params.get('client') || '') ? params.get('client') : newBoardId().toLowerCase();
@@ -517,6 +528,19 @@ function onConnection(ws, params, tutor) {
       openBoards.delete(ob.board.id);
     }
   });
+}
+
+// Turns a connection away and says why on the console, so a board link that
+// "doesn't work" can be looked into. Only a board that really doesn't exist
+// gets 4404, which makes the page say the link is bad and stop trying. Any
+// other problem (such as a file that can't be read right now) gets 1011, and
+// the page keeps retrying as it does when offline.
+function refuse(ws, id, tutor, reason, missing) {
+  // The id comes from the browser: cut it short and quote it, so it can't mess up the log.
+  const shown = JSON.stringify(id.length > 60 ? id.slice(0, 60) + '...' : id);
+  const who = tutor ? 'tutor' : 'student';
+  console.warn(`Board ${shown} refused (${who}): ${reason}${missing ? '' : '; the page will retry'}`);
+  ws.close(missing ? 4404 : 1011, missing ? 'Board not found' : 'Could not open board');
 }
 
 function handleMessage(ob, ws, data) {

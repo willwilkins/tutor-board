@@ -213,6 +213,7 @@ body:not([data-role="tutor"]) .tutor-only { display: none !important; }
 }
 #notice[hidden] { display: none; }
 #notice a { color: var(--accent); }
+#notice .id { color: #6b7280; font-size: 13px; font-family: ui-monospace, Consolas, monospace; word-break: break-all; }
 
 /* ---------- home page ---------- */
 

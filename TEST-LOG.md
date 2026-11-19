@@ -3,6 +3,71 @@
 Hands-on tests on real devices: what was tried, what went wrong, what we think the
 cause is, and how to check it next time. Bugs to fix also go in BACKLOG.md.
 
+## 2026-11-19 · Android black-screen fix (branch `android-black-canvas`)
+
+Setup: the fix from the 2026-11-06 Android test below. Low-latency canvases are off on
+Android and Chromebooks, `?lowlatency=on` or `=off` overrides that, and the board is
+redrawn if the browser restores a lost canvas.
+
+Result: the tutor tested the fix and reported that it worked completely. The black
+screen is fixed. No further details were recorded (device, browser, or whether
+`?lowlatency=on` brought the black screen back).
+
+## 2026-11-07 · Laptop with Wacom, and iPad (branch `claude/gifted-moore-d1b94f`)
+
+Setup: the branch with the light-dot fix, the one-finger hint and the board-link
+logging. Wacom on the tutor's laptop; iPad Safari over the student link, with `?debug`
+on.
+
+Overall: the iPad works fine now.
+
+### 1. Wacom ink looks a little thicker
+
+The ink seemed a little thicker than before (not certain). The tutor likes it as it is,
+so nothing to change. Likely from the light-dot fix: a pen held still now keeps the
+highest pressure it reached, so stroke starts can come out a little heavier, and dots
+are never smaller than the pen's normal width.
+
+### 2. Light dots of "!" still don't show on the iPad
+
+A light press still gives no dot; pressing a little harder works. Not a priority:
+users would work this out quickly. Kept in BACKLOG as low priority.
+
+What it tells us: with the fix, any dot that reaches the app is drawn at least the pen's
+normal width (3 px at the default size), so a missing dot now most likely means the
+light tap never reached the page as a pen touch. iPadOS may treat a very light Pencil
+tap as hover only, or the tap may arrive while the previous stroke is still ending.
+No quick fix without knowing which.
+
+How to tell next time (with `?debug` on): write "!" lightly and check the event list for
+a `down pen` line for the dot. No line means the tap never reached the page, and there's
+probably nothing the app can do. A line with a tiny pressure means the app's bug.
+
+### 3. The one-finger hint never showed on the iPad
+
+With a pen used on the iPad, dragging one finger on the canvas showed no hint. The debug
+panel is see-through, so it wouldn't hide the hint.
+
+Likely cause: the hint is skipped for contacts over 30 px (meant to rule out palms), and
+Safari probably reports a fingertip as bigger than that, so every finger counts as a
+palm.
+
+How to tell next time (with `?debug` on): drag one finger and read its `size WxH` in the
+debug panel (the blue ring is drawn at that size). Over 30 means this cause.
+
+Possible fixes (not built yet): raise the size limit above a normal finger (for example
+the finger's reported size plus a margin, if a palm reports clearly bigger), or drop the
+size check and rely on the distance alone.
+
+### 4. Board links with typos
+
+- A typo in the board ID (last character changed): "This board link doesn't work. Ask
+  your tutor for a new one." with the board ID shown underneath. Works as intended.
+- A typo in the first half of the link, the `….trycloudflare.com` address (a word left
+  out): Safari said it can't open the page because the server can't be found. Expected:
+  that address names the tunnel itself, so a wrong one never reaches Tutor Board, and
+  the app can't show anything. Only a correct link helps.
+
 ## 2026-11-06 · Android phone (Google Pixel, Brave) and Mac (Brave) (`ipad` branch)
 
 Setup: a friend on a video call opened the student link over the Cloudflare tunnel in
@@ -167,6 +232,14 @@ Possible fixes:
   instead of the first one.
 - Give a dot a minimum size, for example the pen's normal width.
 
+Fix built 2026-11-07 (branch `claude/gifted-moore-d1b94f`): both of the above. A point
+the pen stays on keeps the highest pressure seen there; if that point was already sent,
+a small `stroke:pressure` message brings others and the saved board up to date. A dot is
+never smaller than the pen's normal width. Tested in Chrome with simulated Pencil input
+(a dot landing at pressure 0.02 and pressing to 0.6; a light tap that never presses
+harder; going offline mid-dot): the dot looked the same in both tabs and on the server.
+Still to check on the iPad: write "!" lightly several times, with `?debug` on.
+
 ## 2026-11-05 · iPad, finger and Apple Pencil (first iPad test)
 
 Found four problems; they're logged as bugs in BACKLOG.md:
@@ -176,4 +249,13 @@ Found four problems; they're logged as bugs in BACKLOG.md:
 - The student link said "This board link doesn't work".
 
 Also found: one finger does nothing after the Pencil has been used, which was confusing.
-Decided: show a hint, not one-finger pan.
+Decided: show a hint, not one-finger pan. Built 2026-11-07 (see BACKLOG.md, Next).
+
+Fix notes for "This board link doesn't work" (2026-11-07, branch
+`claude/gifted-moore-d1b94f`): the cause is still unknown, but next time there will be
+something to go on. The server console logs every refused board with the requested ID
+and the reason (bad ID, no file, or read error). Only a board that really doesn't exist
+shows the "doesn't work" notice; a file that can't be read makes the page retry, like
+being offline. The notice shows the board ID the page asked for. How to check next time:
+- Read the server console for a line starting `Board "…" refused`.
+- Compare the ID in the notice with the link from Copy student link.

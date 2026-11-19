@@ -6,6 +6,12 @@ export function widthAt(size, pressure) {
   return size * (0.3 + 1.4 * pressure); // pressure 0.5 (mouse) -> exactly `size`
 }
 
+// A single tap is drawn as a round dot. It is never smaller than the pen's
+// normal width, so a light, quick dot (pressure near 0) still shows.
+export function dotWidth(size, pressure) {
+  return Math.max(size, widthAt(size, pressure));
+}
+
 export function setStyle(ctx, s) {
   ctx.strokeStyle = s.color;
   ctx.fillStyle = s.color;
@@ -42,7 +48,7 @@ export function drawTail(ctx, s) {
   setStyle(ctx, s);
   if (n === 1) {
     ctx.beginPath();
-    ctx.arc(p[0], p[1], widthAt(s.size, p[2]) / 2, 0, Math.PI * 2);
+    ctx.arc(p[0], p[1], dotWidth(s.size, p[2]) / 2, 0, Math.PI * 2);
     ctx.fill();
     return;
   }
@@ -99,7 +105,7 @@ export function hitStroke(s, x, y, r) {
   const m = r + maxHalfWidth(s);
   if (x < b.minX - m || x > b.maxX + m || y < b.minY - m || y > b.maxY + m) return false;
   const p = s.points;
-  if (p.length === 3) return Math.hypot(p[0] - x, p[1] - y) <= r + widthAt(s.size, p[2]) / 2;
+  if (p.length === 3) return Math.hypot(p[0] - x, p[1] - y) <= r + dotWidth(s.size, p[2]) / 2;
   for (let i = 3; i < p.length; i += 3) {
     const d = distToSegment(x, y, p[i - 3], p[i - 2], p[i], p[i + 1]);
     if (d <= r + widthAt(s.size, p[i + 2]) / 2) return true;
