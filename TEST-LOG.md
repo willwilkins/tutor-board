@@ -13,6 +13,37 @@ Result: the tutor tested the fix and reported that it worked completely. The bla
 screen is fixed. No further details were recorded (device, browser, or whether
 `?lowlatency=on` brought the black screen back).
 
+Later the same day the tutor tested it on two of their own Android devices:
+
+- **Samsung Galaxy Tab S (older model), with its pen:** works. The pen reports
+  80–95 Hz, and the lag is noticeable, but this old tablet lags in every app. Not
+  checked yet: whether `?lowlatency=on` works on this tablet without the black screen,
+  and whether it feels less laggy. If it does, low latency could stay on for
+  devices where it works.
+- **Samsung Galaxy Ace 2 (2012 phone), built-in browser:** the board shows, roughly,
+  and the toolbar buttons respond (the tool sounds play), but nothing draws in pen
+  mode. Likely cause: the phone's old browser has no Pointer Events, which the app
+  uses for all drawing, while the buttons only need ordinary clicks. It probably also
+  lacks WebSockets, so live sync wouldn't work either. Not worth fixing: no student
+  will use a browser that old.
+
+Retest on the Galaxy tablet with `?lowlatency=on`: no black screen. The page took 5–10 s
+to load. Drawing kept up for the first ~3 cm of a stroke, then the lag became very
+visible. Not clear whether that is only the old tablet being slow.
+
+Then again without `?lowlatency=on`: the page loaded in about half the time, and the
+drawing lag was the same as with it on.
+
+- The slower load with `?lowlatency=on` is unexplained. That setting only changes how
+  the two canvases are set up, after the page has loaded. One guess: the browser
+  treats a link with a different ending as a new page and fetches it fresh, or the
+  first load was simply slower. Not worth chasing, since low latency stays off here
+- The lag is the same either way, so it is the tablet, not low latency. The app's
+  per-sample work doesn't grow with stroke length either: each new point draws one
+  short segment and sends only the new points
+- Decision: keep low latency off on Android, as the fix does. It doesn't help on this
+  tablet, and it turned the Pixel black
+
 ## 2026-11-07 · Laptop with Wacom, and iPad (branch `claude/gifted-moore-d1b94f`)
 
 Setup: the branch with the light-dot fix, the one-finger hint and the board-link
